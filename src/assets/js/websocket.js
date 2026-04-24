@@ -43,7 +43,7 @@ $(document).ready(function () {
 
   // Pastikan ID tombol (#open, #close, dll) sama dengan di HTML
   $("#open").on("click", function () {
-    console.log("Tombol Buka diklik"); // Debugging
+    console.log("Tombol Buka diklik"); 
     sendmesg(topic_cmd, "OPEN");
   });
 
