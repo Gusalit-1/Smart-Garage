@@ -1,33 +1,30 @@
 #include <WiFi.h>
-#include <WiFiManager.h> // Tambahkan ini
+#include <WiFiManager.h>
 #include <PubSubClient.h>
 #include <SPI.h>
 #include <MFRC522.h>
 #include <HTTPClient.h>
 
-// --- 1. KONFIGURASI MQTT ---
-// SSID dan Password dihapus karena akan diatur via Dashboard WiFiManager
+// --- 1. KONFIGURASI MQTT & SERVER ---
 const char *mqtt_broker = "broker.emqx.io";
 const int mqtt_port = 1883;
-
-// --- 2. URL SERVER ---
 const char *server_url = "http://192.168.0.100/ROBOTIKA/simpan_log.php";
 
-// --- 3. KONFIGURASI PIN ---
+// --- 2. KONFIGURASI PIN ---
 #define SS_PIN 5
 #define RST_PIN 22
 #define BUZZER_PIN 25
 #define SERVO_1_PIN 13 
 #define SERVO_2_PIN 12 
 
-// --- 4. STATUS & SUDUT SERVO ---
+// --- 3. STATUS & SUDUT SERVO ---
 const int SUDUT_BUKA = 20;
 const int SUDUT_TUTUP = 130;
 int posisiSekarang = 130;
 bool pintuTerbuka = false;
 bool sistemTerkunci = false;
 
-// --- 5. DAFTAR USER RFID ---
+// --- 4. DAFTAR USER RFID ---
 struct User {
     const char *uid;
     const char *nama;
@@ -40,12 +37,12 @@ User allowedUsers[] = {
 };
 const int TOTAL_USER = sizeof(allowedUsers) / sizeof(allowedUsers[0]);
 
-// --- 6. INISIALISASI OBJECT ---
+// --- 5. INISIALISASI OBJECT ---
 MFRC522 rfid(SS_PIN, RST_PIN);
 WiFiClient espClient;
 PubSubClient client(espClient);
 
-// --- FUNGSI SERVO & LAINNYA (Sama seperti kode asli kamu) ---
+// --- 6. FUNGSI PENDUKUNG (Servo, Buzzer, Web) ---
 void dualServoWrite(int angle) {
     int us1 = 600 + (angle * (2400 - 600) / 180);
     uint32_t duty1 = (uint32_t)((us1 * 65535) / 20000);
@@ -74,7 +71,6 @@ void beep(int ms) {
 void updateStatusWeb() {
     client.publish("gusalit/gate/status", pintuTerbuka ? "OPEN" : "CLOSE");
     client.publish("gusalit/gate/lock", sistemTerkunci ? "LOCKED" : "UNLOCKED");
-    // Tambahan: Kirim IP Utama agar muncul di dashboard
     client.publish("gusalit/gate/main_ip", WiFi.localIP().toString().c_str(), true);
 }
 
@@ -91,6 +87,7 @@ void sendLogToDB(String uid) {
 
 void eksekusiPintu(bool buka, String trigger) {
     if (sistemTerkunci && trigger.indexOf("RFID") != -1) {
+        Serial.println("System LOCKED!");
         beep(1000);
         return;
     }
@@ -107,6 +104,7 @@ void eksekusiPintu(bool buka, String trigger) {
     }
 }
 
+// --- 7. MQTT CALLBACK ---
 void callback(char *topic, byte *payload, unsigned int length) {
     String msg = "";
     for (int i = 0; i < length; i++) msg += (char)payload[i];
@@ -118,7 +116,7 @@ void callback(char *topic, byte *payload, unsigned int length) {
     }
 }
 
-// --- 9. SETUP ---
+// --- 8. SETUP ---
 void setup() {
     Serial.begin(115200);
     SPI.begin();
@@ -129,22 +127,20 @@ void setup() {
     ledcAttach(SERVO_2_PIN, 50, 16);
     dualServoWrite(SUDUT_TUTUP);
 
-    // --- BAGIAN WIFIMANAGER ---
+    // WIFI MANAGER
     WiFiManager wm;
-    wm.setClass("invert"); // Tema gelap agar estetik
-    
-    // Jika tidak bisa konek ke WiFi lama, ESP akan membuat Hotspot: "Smart-Garage-Main"
+    wm.setClass("invert");
     if(!wm.autoConnect("Smart-Garage-Main", "12345678")) {
-        Serial.println("Gagal terhubung, merestart...");
+        Serial.println("Gagal konek, restart...");
         delay(3000);
         ESP.restart();
     }
 
-    Serial.println("WiFi Utama Terhubung!");
     client.setServer(mqtt_broker, mqtt_port);
     client.setCallback(callback);
 }
 
+// --- 9. LOOP ---
 void loop() {
     if (!client.connected()) {
         if (client.connect("ESP32_Gusalit_Main")) {
@@ -156,7 +152,7 @@ void loop() {
     }
     client.loop();
 
-    // Logika RFID kamu
+    // LOGIKA RFID
     if (rfid.PICC_IsNewCardPresent() && rfid.PICC_ReadCardSerial()) {
         String uidStr = "";
         for (byte i = 0; i < rfid.uid.size; i++) {
@@ -166,9 +162,14 @@ void loop() {
         }
         uidStr.toUpperCase();
 
+        // 1. Perintahkan Kamera ambil foto (MQTT)
+        client.publish("gusalit/gate/camera_command", "CAPTURE");
+        
+        // 2. Kirim data ke Dashboard & Database
         client.publish("gusalit/gate/rfid", uidStr.c_str());
         sendLogToDB(uidStr);
 
+        // 3. Cek Akses
         bool found = false;
         for (int i = 0; i < TOTAL_USER; i++) {
             if (uidStr == allowedUsers[i].uid) {
@@ -178,10 +179,12 @@ void loop() {
                 break;
             }
         }
+
         if (!found) {
             client.publish("gusalit/gate/access", "DENIED");
             beep(800);
         }
+
         rfid.PICC_HaltA();
         rfid.PCD_StopCrypto1();
     }
