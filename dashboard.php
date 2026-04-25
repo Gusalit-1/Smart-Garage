@@ -1,0 +1,158 @@
+<?php 
+include 'includes/session_check.php'; 
+include 'includes/config.php';
+?>
+<!doctype html>
+<html lang="en">
+<head>
+    <title>Smart Garage Monitor</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="src/assets/css/style.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+</head>
+
+<body class="bg-[#0f172a] text-slate-200 font-sans antialiased">
+    <div class="min-h-screen p-4 md:p-6">
+        <div class="max-w-7xl mx-auto bg-slate-800/40 backdrop-blur-xl rounded-[2.5rem] border border-white/10 shadow-2xl overflow-hidden">
+            
+            <header class="flex flex-col md:flex-row justify-between items-center p-8 border-b border-white/5 gap-6">
+                <div class="flex items-center gap-5">
+                    <div>
+                        <h1 class="text-2xl font-black text-white tracking-tight">Smart Garage</h1>
+                        <p class="text-slate-400 text-xs font-medium uppercase tracking-widest">Security & Monitoring</p>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-6">
+                    <div class="flex flex-col items-end">
+                        <span id="mqttStatus" class="text-[10px] font-bold px-3 py-1 bg-slate-900/80 rounded-full text-slate-500 border border-white/5 uppercase tracking-tighter">
+                            ● MQTT: OFFLINE
+                        </span>
+                    </div>
+                    <a href="logout.php" class="px-5 py-2 rounded-xl bg-rose-500/10 text-rose-500 text-xs font-bold border border-rose-500/20 hover:bg-rose-500 hover:text-white transition-all">Logout</a>
+                </div>
+            </header>
+
+            <main class="p-8">
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                    
+                    <div class="lg:col-span-8 space-y-8">
+                        
+                        <div class="bg-slate-900/50 rounded-[2rem] border border-white/5 p-3 shadow-inner">
+                            <div class="relative aspect-video rounded-[1.5rem] overflow-hidden bg-black group">
+                                <div class="absolute top-4 left-4 z-20 flex items-center gap-2 bg-rose-600 text-white px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg">
+                                    <span class="w-2 h-2 bg-white rounded-full animate-ping"></span> LIVE
+                                </div>
+                                <img
+                                    id="camera-stream"
+                                    class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                                    src="" 
+                                    onerror="this.src='https://placehold.co/640x360/000000/FFFFFF?text=Menunggu%20Koneksi...';"
+                                    />
+                            </div>
+                        </div>
+
+                        <div class="bg-slate-900/30 rounded-[2rem] border border-white/5 overflow-hidden">
+                            <div class="px-8 py-6 border-b border-white/5 flex justify-between items-center">
+                                <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest">History Aktivitas</h3>
+                                <div class="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]"></div>
+                            </div>
+                            <div class="max-h-[400px] overflow-y-auto custom-scrollbar">
+                                <ul id="historyList" class="divide-y divide-white/5">
+                                    <?php
+                                    $logs = mysqli_query($conn, "SELECT * FROM garage_logs ORDER BY waktu DESC LIMIT 15");
+                                    while($row = mysqli_fetch_assoc($logs)) {
+                                        $hasPhoto = !empty($row['foto']);
+                                        $isGranted = (strpos(strtoupper($row['aktivitas']), 'GRANTED') !== false);
+                                        $statusClass = $isGranted ? 'text-emerald-400' : 'text-sky-400';
+                                        ?>
+                                        <li class="px-8 py-5 hover:bg-white/[0.02] transition-all flex justify-between items-center group">
+                                            <div class="space-y-1">
+                                                <div class="flex items-center gap-3">
+                                                    <span class="text-[10px] font-mono font-bold text-slate-600 bg-black/20 px-2 py-0.5 rounded"><?php echo date('H:i:s', strtotime($row['waktu'])); ?></span>
+                                                    <span class="text-sm font-bold text-white tracking-tight"><?php echo $row['username']; ?></span>
+                                                </div>
+                                                <p class="text-[11px] <?php echo $statusClass; ?> font-black uppercase tracking-wider">
+                                                    <?php echo $row['aktivitas']; ?>
+                                                </p>
+                                            </div>
+                                            
+                                            <?php if($hasPhoto): ?>
+                                                <button onclick="openModal('src/assets/img/captures/<?php echo $row['foto']; ?>')" class="bg-white/5 hover:bg-indigo-600 p-3 rounded-xl transition-all text-slate-400 hover:text-white border border-white/5 shadow-xl">
+                                                    <i class="fa-solid fa-camera-retro text-sm"></i>
+                                                </button>
+                                                <?php endif; ?>
+                                        </li>
+                                    <?php } ?>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="lg:col-span-4">
+                        <div class="sticky top-6 space-y-6">
+                            <div class="bg-slate-900/50 rounded-[2rem] border border-white/5 p-8 shadow-xl">
+                                <h3 class="text-xs font-black text-slate-500 uppercase tracking-widest mb-8 text-center">Kontrol Gerbang</h3>
+                                
+                                <div class="space-y-4">
+                                    <button id="open" onclick="controlGarage('OPEN')" class="w-full py-5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-black text-sm tracking-[0.2em] shadow-2xl shadow-emerald-900/40 transition-all active:scale-95">
+                                        BUKA
+                                    </button>
+                                    <button id="close" onclick="controlGarage('CLOSE')" class="w-full py-5 bg-rose-600 hover:bg-rose-500 text-white rounded-2xl font-black text-sm tracking-[0.2em] shadow-2xl shadow-rose-900/40 transition-all active:scale-95">
+                                        TUTUP
+                                    </button>
+                                    
+                                    <div class="grid grid-cols-2 gap-3 pt-2">
+                                        <button id="lockBtn" class="py-3 bg-amber-500 hover:bg-amber-400 text-slate-900 rounded-xl font-black text-[10px] tracking-widest transition-all">LOCK</button>
+                                        <button id="unlockBtn" class="py-3 bg-sky-500 hover:bg-sky-400 text-slate-900 rounded-xl font-black text-[10px] tracking-widest transition-all">UNLOCK</button>
+                                    </div>
+                                </div>
+
+                                <div class="mt-10 pt-6 border-t border-white/5 space-y-4">
+                                    <div class="flex justify-between items-center bg-black/20 p-3 rounded-xl border border-white/5">
+                                        <span class="text-[10px] font-black text-slate-500 uppercase">Status Gate</span>
+                                        <span id="gateStatus" class="px-3 py-1 rounded-lg bg-rose-500/10 text-rose-500 text-[10px] font-black border border-rose-500/20">TERTUTUP</span>
+                                    </div>
+                                    <div class="flex justify-between items-center bg-black/20 p-3 rounded-xl border border-white/5">
+                                        <span class="text-[10px] font-black text-slate-500 uppercase">Status Lock</span>
+                                        <span id="lockStatus" class="px-3 py-1 rounded-lg bg-slate-700 text-slate-400 text-[10px] font-black">OFF</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </main>
+        </div>
+            <div id="photoModal" class="fixed inset-0 z-[999] hidden items-center justify-center bg-black/90 backdrop-blur-sm p-4 transition-all duration-300">
+        <div class="relative max-w-3xl w-full bg-slate-900 rounded-[2rem] border border-white/10 overflow-hidden transform scale-95 opacity-0 transition-all duration-300">
+            <div class="flex justify-between items-center p-6 border-b border-white/5">
+                <h3 class="text-white font-black uppercase tracking-widest text-xs">Aktivitas Terdeteksi</h3>
+                <button onclick="closeModal()" class="text-slate-400 hover:text-white transition-colors">
+                    <i class="fa-solid fa-xmark text-xl"></i>
+                </button>
+            </div>
+            <div class="p-2 bg-black/50">
+                <img id="imgPreview" src="" alt="Capture" class="w-full h-auto rounded-xl shadow-2xl">
+            </div>
+            <div class="p-6 text-center">
+                <button onclick="closeModal()" class="px-8 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold text-xs tracking-widest transition-all">
+                    TUTUP PREVIEW
+                </button>
+            </div>
+        </div>
+        </div>
+    </div>
+    <script src="https://cdn-script.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.js"></script>
+    <script src="src/assets/js/config.js"></script>
+    <script src="src/assets/js/websocket.js"></script>
+    <script src="src/assets/js/script.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+</body>
+</html>

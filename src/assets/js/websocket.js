@@ -43,7 +43,7 @@ $(document).ready(function () {
 
   // Pastikan ID tombol (#open, #close, dll) sama dengan di HTML
   $("#open").on("click", function () {
-    console.log("Tombol Buka diklik"); // Debugging
+    console.log("Tombol Buka diklik"); 
     sendmesg(topic_cmd, "OPEN");
   });
 
@@ -89,8 +89,10 @@ function MQTTconnect() {
 }
 
 function onConnect() {
-  updateMQTTStatus("CONNECTED");
-  mqtt.subscribe(topic_sub);
+    console.log("MQTT Berhasil Konek ke Broker!"); // Tambahkan ini
+    updateMQTTStatus("CONNECTED");
+    mqtt.subscribe("gusalit/gate/#");
+    console.log("Sudah Subscribe ke gusalit/gate/#");
 }
 
 function onConnectionLost(res) {
@@ -134,10 +136,28 @@ function addHistory(uid, access) {
   }
 }
 
+// Tambahkan variabel global di bagian atas jika diperlukan
+var currentCameraIP = "192.168.0.105"; // Default IP awal
+
 function onMessageArrived(message) {
     var topic = message.destinationName;
     var payload = message.payloadString.trim();
 
+    // --- FITUR AUTO DETECT IP KAMERA ---
+    if (topic === "gusalit/gate/camera_ip") {
+        console.log("IP Kamera Baru Diterima: " + payload);
+        currentCameraIP = payload;
+        
+        // Update URL Stream di Dashboard
+        // Port 81 adalah port standar streaming ESP32-CAM
+        const newStreamUrl = "http://" + payload + ":81/stream";
+        $("#camera-stream").attr("src", newStreamUrl);
+        
+        // Update juga untuk fitur snapshot di history jika ada
+        console.log("Stream URL diupdate ke: " + newStreamUrl);
+    }
+
+    // --- STATUS GERBANG ---
     if (topic === "gusalit/gate/status") {
         var isBuka = (payload === "OPEN");
         $("#gateStatus").text(isBuka ? "TERBUKA" : "TERTUTUP")
@@ -145,78 +165,51 @@ function onMessageArrived(message) {
                         .addClass(isBuka ? "bg-success" : "bg-danger");
     }
 
+    // --- STATUS LOCK ---
     if (topic === "gusalit/gate/lock") {
-        var isLocked = (payload === "LOCKED");
+        var locked = (payload === "LOCKED");
         $("#lockStatus").text(payload)
                         .removeClass("bg-secondary bg-warning")
-                        .addClass(isLocked ? "bg-warning text-dark" : "bg-info text-dark");
-        setLockUI(isLocked);
+                        .addClass(locked ? "bg-warning text-dark" : "bg-info text-dark");
+        setLockUI(locked);
     }
 
+    // --- RFID DATA ---
     if (topic === "gusalit/gate/rfid") {
         lastUID = payload;
     }
 
+    // --- AKSES RFID ---
     if (topic === "gusalit/gate/access") {
         addHistory(lastUID, payload);
     }
 }
 
 function addHistory(uid, access) {
-    const now = new Date();
-
-    const waktu = now.toLocaleTimeString('id-ID', {
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit'
-    });
-
-    let nama = "";
-    if (typeof getNamaByUID === "function") {
-        nama = getNamaByUID(uid);
-    }
-    if (!nama) {
-        nama = "Unknown User";
-    }
-
-    const isGranted = access === "GRANTED";
-    const statusBadge = isGranted ? "badge bg-success" : "badge bg-danger";
-
-    const row = document.createElement("li");
-    
-    // bg-transparent agar background putih hilang
-    // border-secondary agar garis pemisah antar list tidak terlalu kontras (putih tipis)
-    row.className = "list-group-item bg-transparent border-secondary d-flex justify-content-between align-items-center px-3 py-2";
-
-    const safeNama = typeof escapeHtml === "function" ? escapeHtml(nama) : nama;
-    const safeUid = typeof escapeHtml === "function" ? escapeHtml(uid) : uid;
-
-    row.innerHTML = `
-        <div class="d-flex flex-column" style="width: 40%;">
-            <span class="fw-bold text-white text-truncate" style="font-size: 14px;">${safeNama}</span>
-            <span class="text-white-50 text-uppercase font-monospace" style="font-size: 10px;">${safeUid}</span>
-        </div>
-        
-        <div class="text-center text-white" style="width: 30%; font-size: 12px;">
-            ${waktu}
-        </div>
-        
-        <div class="text-end" style="width: 30%;">
-            <span class="${statusBadge} text-uppercase" style="font-size: 10px; letter-spacing: 1px;">
-                ${access}
-            </span>
-        </div>
-    `;
-
     const container = document.getElementById("historyList");
     if (!container) return;
 
-    container.prepend(row);
+    let nama = getNamaByUID(uid);
+    const waktu = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    const statusClass = access === "GRANTED" ? 'text-emerald-400' : 'text-rose-400';
 
-    // Tetap simpan hingga 50 agar bisa discroll
-    while (container.children.length > 50) {
-        container.removeChild(container.lastChild);
-    }
+    const row = document.createElement("li");
+    row.className = "px-8 py-5 hover:bg-white/[0.02] transition-all flex justify-between items-center group";
+
+    row.innerHTML = `
+        <div class="space-y-1">
+            <div class="flex items-center gap-3">
+                <span class="text-[10px] font-mono font-bold text-slate-600 bg-black/20 px-2 py-0.5 rounded">${waktu}</span>
+                <span class="text-sm font-bold text-white tracking-tight">${nama}</span>
+            </div>
+            <p class="text-[11px] ${statusClass} font-black uppercase tracking-wider">${access}</p>
+        </div>
+        <button onclick="openModal('src/assets/img/captures/capture_live.jpg?t=${new Date().getTime()}')"
+                class="bg-white/5 hover:bg-indigo-600 p-3 rounded-xl transition-all text-slate-400 hover:text-white border border-white/5 shadow-xl">
+            <i class="fa-solid fa-camera-retro text-sm"></i>
+        </button>
+    `;
+    container.prepend(row);
 }
 
 function sendmesg(topic, command) {
