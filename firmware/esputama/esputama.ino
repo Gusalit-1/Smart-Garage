@@ -5,27 +5,29 @@
 #include <MFRC522.h>
 #include <HTTPClient.h>
 
-// --- 1. KONFIGURASI MQTT & SERVER ---
+// --- KONFIGURASI WIFI & MQTT ---
+const char *ssid = "Semangat 2";
+const char *pass = "PastibisaBintang";
 const char *mqtt_broker = "broker.emqx.io";
 const int mqtt_port = 1883;
 const char *server_url = "http://192.168.0.100/ROBOTIKA/simpan_log.php";
 
-// --- 2. KONFIGURASI PIN ---
+// --- KONFIGURASI PIN ---
 #define SS_PIN 5
 #define RST_PIN 22
 #define BUZZER_PIN 25
-#define SERVO_1_PIN 13 
-#define SERVO_2_PIN 12 
+#define SERVO_PIN 13
 
-// --- 3. STATUS & SUDUT SERVO ---
+// --- STATUS & SUDUT ---
 const int SUDUT_BUKA = 20;
 const int SUDUT_TUTUP = 130;
 int posisiSekarang = 130;
 bool pintuTerbuka = false;
 bool sistemTerkunci = false;
 
-// --- 4. DAFTAR USER RFID ---
-struct User {
+// --- DAFTAR USER ---
+struct User
+{
     const char *uid;
     const char *nama;
 };
@@ -37,27 +39,27 @@ User allowedUsers[] = {
 };
 const int TOTAL_USER = sizeof(allowedUsers) / sizeof(allowedUsers[0]);
 
-// --- 5. INISIALISASI OBJECT ---
 MFRC522 rfid(SS_PIN, RST_PIN);
 WiFiClient espClient;
 PubSubClient client(espClient);
 
-// --- 6. FUNGSI PENDUKUNG (Servo, Buzzer, Web) ---
-void dualServoWrite(int angle) {
-    int us1 = 600 + (angle * (2400 - 600) / 180);
-    uint32_t duty1 = (uint32_t)((us1 * 65535) / 20000);
-    int reverseAngle = 180 - angle; 
-    int us2 = 600 + (reverseAngle * (2400 - 600) / 180);
-    uint32_t duty2 = (uint32_t)((us2 * 65535) / 20000);
-    ledcWrite(SERVO_1_PIN, duty1);
-    ledcWrite(SERVO_2_PIN, duty2);
+// --- FUNGSI DASAR ---
+void servoWrite(int angle)
+{
+    int us = 600 + (angle * (2400 - 600) / 180);
+    uint32_t duty = (uint32_t)((us * 65535) / 20000);
+    ledcWrite(SERVO_PIN, duty);
 }
 
-void servoMoveSmooth(int target, int speed) {
-    while (posisiSekarang != target) {
-        if (posisiSekarang < target) posisiSekarang++;
-        else posisiSekarang--;
-        dualServoWrite(posisiSekarang);
+void servoMoveSmooth(int target, int speed)
+{
+    while (posisiSekarang != target)
+    {
+        if (posisiSekarang < target)
+            posisiSekarang++;
+        else
+            posisiSekarang--;
+        servoWrite(posisiSekarang);
         delay(speed);
     }
 }
@@ -85,13 +87,16 @@ void sendLogToDB(String uid) {
     }
 }
 
-void eksekusiPintu(bool buka, String trigger) {
-    if (sistemTerkunci && trigger.indexOf("RFID") != -1) {
-        Serial.println("System LOCKED!");
-        beep(1000);
+void eksekusiPintu(bool buka, String trigger)
+{
+    if (sistemTerkunci && trigger.indexOf("RFID") != -1)
+    {
+        Serial.println("Akses RFID ditolak: System LOCKED");
         return;
     }
-    if (buka) {
+
+    if (buka)
+    {
         pintuTerbuka = true;
         updateStatusWeb();
         beep(100); delay(100); beep(100);
@@ -104,46 +109,61 @@ void eksekusiPintu(bool buka, String trigger) {
     }
 }
 
-// --- 7. MQTT CALLBACK ---
-void callback(char *topic, byte *payload, unsigned int length) {
+// --- MQTT CALLBACK ---
+void callback(char *topic, byte *payload, unsigned int length)
+{
     String msg = "";
-    for (int i = 0; i < length; i++) msg += (char)payload[i];
-    if (String(topic) == "gusalit/gate/command") {
-        if (msg == "LOCK") { sistemTerkunci = true; updateStatusWeb(); beep(600); }
-        else if (msg == "UNLOCK") { sistemTerkunci = false; updateStatusWeb(); beep(100); }
-        else if (msg == "OPEN" && !pintuTerbuka) { eksekusiPintu(true, "Web Control"); }
-        else if (msg == "CLOSE" && pintuTerbuka) { eksekusiPintu(false, "Web Control"); }
+    for (int i = 0; i < length; i++)
+        msg += (char)payload[i];
+
+    if (String(topic) == "gusalit/gate/command")
+    {
+        if (msg == "LOCK")
+        {
+            sistemTerkunci = true;
+            updateStatusWeb();
+            beep(600);
+        }
+        else if (msg == "UNLOCK")
+        {
+            sistemTerkunci = false;
+            updateStatusWeb();
+            beep(100);
+        }
+        else if (msg == "OPEN" && !pintuTerbuka)
+        {
+            eksekusiPintu(true, "Web");
+        }
+        else if (msg == "CLOSE" && pintuTerbuka)
+        {
+            eksekusiPintu(false, "Web");
+        }
     }
 }
 
-// --- 8. SETUP ---
-void setup() {
+void setup()
+{
     Serial.begin(115200);
     SPI.begin();
     rfid.PCD_Init();
-    
     ledcAttach(BUZZER_PIN, 2000, 8);
-    ledcAttach(SERVO_1_PIN, 50, 16);
-    ledcAttach(SERVO_2_PIN, 50, 16);
-    dualServoWrite(SUDUT_TUTUP);
+    ledcAttach(SERVO_PIN, 50, 16);
+    servoWrite(SUDUT_TUTUP);
 
-    // WIFI MANAGER
-    WiFiManager wm;
-    wm.setClass("invert");
-    if(!wm.autoConnect("Smart-Garage-Main", "12345678")) {
-        Serial.println("Gagal konek, restart...");
-        delay(3000);
-        ESP.restart();
-    }
+    WiFi.begin(ssid, pass);
+    while (WiFi.status() != WL_CONNECTED)
+        delay(500);
 
     client.setServer(mqtt_broker, mqtt_port);
     client.setCallback(callback);
 }
 
-// --- 9. LOOP ---
-void loop() {
-    if (!client.connected()) {
-        if (client.connect("ESP32_Gusalit_Main")) {
+void loop()
+{
+    if (!client.connected())
+    {
+        if (client.connect("ESP32_Gusalit"))
+        {
             client.subscribe("gusalit/gate/command");
             updateStatusWeb();
         } else {
@@ -152,8 +172,8 @@ void loop() {
     }
     client.loop();
 
-    // LOGIKA RFID
-    if (rfid.PICC_IsNewCardPresent() && rfid.PICC_ReadCardSerial()) {
+    if (rfid.PICC_IsNewCardPresent() && rfid.PICC_ReadCardSerial())
+    {
         String uidStr = "";
         for (byte i = 0; i < rfid.uid.size; i++) {
             uidStr += (rfid.uid.uidByte[i] < 0x10 ? "0" : "");

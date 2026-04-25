@@ -12,7 +12,6 @@ include 'includes/config.php';
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet" />
     <link rel="stylesheet" href="src/assets/css/style.css" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
 </head>
 
 <body class="bg-[#0f172a] text-slate-200 font-sans antialiased">
@@ -50,9 +49,9 @@ include 'includes/config.php';
                                 <img
                                     id="camera-stream"
                                     class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                                    src="" 
-                                    onerror="this.src='https://placehold.co/640x360/000000/FFFFFF?text=Menunggu%20Koneksi...';"
-                                    />
+                                    src="http://192.168.0.105:81/stream"
+                                    onerror="this.src='https://placehold.co/640x360/000000/FFFFFF?text=Tidak%20Tersedia';"
+                                />
                             </div>
                         </div>
 
@@ -82,10 +81,11 @@ include 'includes/config.php';
                                             </div>
                                             
                                             <?php if($hasPhoto): ?>
-                                                <button onclick="openModal('src/assets/img/captures/<?php echo $row['foto']; ?>')" class="bg-white/5 hover:bg-indigo-600 p-3 rounded-xl transition-all text-slate-400 hover:text-white border border-white/5 shadow-xl">
-                                                    <i class="fa-solid fa-camera-retro text-sm"></i>
-                                                </button>
-                                                <?php endif; ?>
+
+                                            <button onclick="openModal('src/assets/img/captures/<?php echo $row['foto']; ?>')" class="bg-white/5 hover:bg-indigo-600 p-3 rounded-xl transition-all text-slate-400 hover:text-white border border-white/5 shadow-xl">
+                                                <i class="fa-solid fa-camera-retro text-sm"></i>
+                                            </button>
+                                            <?php endif; ?>
                                         </li>
                                     <?php } ?>
                                 </ul>
@@ -148,11 +148,14 @@ include 'includes/config.php';
         </div>
         </div>
     </div>
+
     <script src="https://cdn-script.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.js"></script>
     <script src="src/assets/js/config.js"></script>
     <script src="src/assets/js/websocket.js"></script>
     <script src="src/assets/js/script.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+
 </body>
 </html>
