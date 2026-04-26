@@ -15,12 +15,11 @@ if (isset($_FILES["imageFile"])) {
     $destination = $folder . $filename;
 
     if (move_uploaded_file($temp_name, $destination)) {
-        // Update database agar kolom foto di log terakhir terisi
-        $sql = "UPDATE garage_logs 
-                SET foto = '$filename' 
-                WHERE (foto IS NULL OR foto = '') 
-                ORDER BY id DESC LIMIT 1";
-        mysqli_query($conn, $sql);
+        // Update database agar kolom foto di log terakhir terisi (Prepared Statement)
+        $stmt = $conn->prepare("UPDATE garage_logs SET foto = ? WHERE (foto IS NULL OR foto = '') ORDER BY id DESC LIMIT 1");
+        $stmt->bind_param("s", $filename);
+        $stmt->execute();
+        $stmt->close();
         
         echo "SUCCESS: File disimpan di " . $destination;
     } else {

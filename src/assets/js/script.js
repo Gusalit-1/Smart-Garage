@@ -1,61 +1,68 @@
-function refreshStream() {
-        const img = document.getElementById("camera-stream");
-        const currentSrc = img.src.split("?")[0];
-        img.src = currentSrc + "?t=" + new Date().getTime();
-      }
-
-      function sendMQTT(command) {
-        console.log("Sending Command: " + command);
-        // Logika Paho MQTT kamu di sini
-        const log = document.getElementById("activity-log");
-        const time = new Date().toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        });
-        log.innerHTML =
-          `
-                <div class="flex items-center gap-3 text-indigo-300 border-b border-white/5 pb-2">
-                    <span class="text-xs font-mono">${time}</span>
-                    <span>Gate: ${command}</span>
-                </div>
-            ` + log.innerHTML;
-      }
-
-      function captureImage() {
-        alert("Image saved to local storage!");
-      }
-function refreshCam() {
-        const img = document.getElementById("camera-stream");
-        const src = img.src.split("?")[0];
-        img.src = src + "?t=" + new Date().getTime();
-      }
-function escapeHtml(unsafe) {
-    return (unsafe || "").toString()
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
+// --- MODAL SYSTEM (GLOBAL SCOPE) ---
+function openModal(src) {
+    const modal = document.getElementById('photoModal');
+    const img = document.getElementById('imgPreview');
+    
+    if (modal && img) {
+        img.src = src;
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        
+        setTimeout(() => {
+            const content = modal.querySelector('.relative');
+            if (content) {
+                content.classList.remove('scale-95', 'opacity-0');
+                content.classList.add('scale-100', 'opacity-100');
+            }
+        }, 10);
+        document.body.style.overflow = 'hidden'; 
+    }
 }
 
-// --- 7. INITIALIZATION ---
-function init() {
-    // Setup event listener untuk auto-logout
-    const userActivityEvents = ["mousemove", "mousedown", "keypress", "touchmove"];
-    userActivityEvents.forEach(event => {
-        document.addEventListener(event, resetSessionTimer, false);
-    });
+function closeModal() {
+    const modal = document.getElementById('photoModal');
+    if (modal) {
+        const content = modal.querySelector('.relative');
+        if (content) {
+            content.classList.add('scale-95', 'opacity-0');
+            content.classList.remove('scale-100', 'opacity-100');
+        }
+        setTimeout(() => {
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            document.body.style.overflow = 'auto'; 
+        }, 200);
+    }
+}
 
-    // Event untuk menutup modal dengan tombol ESC
+let sessionTimeout;
+
+function resetSessionTimer() {
+    console.log("Aktivitas terdeteksi, mereset timer sesi...");
+    clearTimeout(sessionTimeout);
+    
+    // Set timer untuk logout otomatis jika tidak ada aktivitas selama 15 menit
+    sessionTimeout = setTimeout(() => {
+        alert("Sesi Anda telah berakhir karena tidak ada aktivitas.");
+        window.location.href = 'logout.php';
+    }, 15 * 60 * 1000); 
+}
+
+// --- INITIALIZATION ---
+function init() {
     document.addEventListener("keydown", (e) => {
         if (e.key === "Escape") closeModal();
     });
-
-    // Mulai timer session pertama kali
-    startSessionTimer();
     
-    console.log("System Initialized...");
+    // Aktifkan auto-logout timer
+    resetSessionTimer();
+    
+    // Event listeners untuk reset timer saat ada aktivitas
+    ['mousemove', 'keydown', 'click', 'touchstart', 'scroll'].forEach(event => {
+        document.addEventListener(event, resetSessionTimer, { passive: true });
+    });
+    
+    console.log("UI Script Initialized...");
 }
 
-// Jalankan saat DOM siap
 document.addEventListener("DOMContentLoaded", init);

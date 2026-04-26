@@ -33,7 +33,8 @@ CREATE TABLE IF NOT EXISTS garage_logs (
 INSERT INTO users (username, password, nama_lengkap) 
 VALUES ('admin', 'admin123', 'admin');
 
--- Daftar kartu RFID (Ganti UID dengan kode kartu asli kamu)
+-- Daftar kartu RFID (Sesuai dengan kode di ESP32 & JavaScript)
 INSERT INTO rfid_cards (uid_tag, pemilik) 
-VALUES ('83 A2 1F 0D', 'Wayan Giri'),
-       ('A1 B2 C3 D4', 'Gung Rama');
+VALUES ('77 97 35 02', 'Wayan Giri'),
+       ('04 0E 45 EA', 'Gusalit'),
+       ('05 81 25 1D', 'Gung Rama');

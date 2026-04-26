@@ -107,8 +107,8 @@ include 'includes/config.php';
                                     </button>
                                     
                                     <div class="grid grid-cols-2 gap-3 pt-2">
-                                        <button id="lockBtn" class="py-3 bg-amber-500 hover:bg-amber-400 text-slate-900 rounded-xl font-black text-[10px] tracking-widest transition-all">LOCK</button>
-                                        <button id="unlockBtn" class="py-3 bg-sky-500 hover:bg-sky-400 text-slate-900 rounded-xl font-black text-[10px] tracking-widest transition-all">UNLOCK</button>
+                                        <button id="lockBtn" onclick="controlGarage('LOCK')" class="py-3 bg-amber-500 hover:bg-amber-400 text-slate-900 rounded-xl font-black text-[10px] tracking-widest transition-all">LOCK</button>
+                                        <button id="unlockBtn" onclick="controlGarage('UNLOCK')" class="py-3 bg-sky-500 hover:bg-sky-400 text-slate-900 rounded-xl font-black text-[10px] tracking-widest transition-all">UNLOCK</button>
                                     </div>
                                 </div>
 
@@ -151,11 +151,11 @@ include 'includes/config.php';
 
     <script src="https://cdn-script.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.js"></script>
-    <script src="src/assets/js/config.js"></script>
-    <script src="src/assets/js/websocket.js"></script>
-    <script src="src/assets/js/script.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-
+    <script src="src/assets/js/config.js"></script>
+    <script src="src/assets/js/script.js"></script>
+    <script src="src/assets/js/websocket.js"></script>
+    
 
 </body>
 </html>

@@ -3,15 +3,17 @@ session_start();
 include 'includes/config.php';
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    $username = mysqli_real_escape_string($conn, $_POST['username']);
-    $password = $_POST['password']; // Di dunia nyata, gunakan password_verify()
+    $username = $_POST['username'];
+    $password = $_POST['password'];
 
-    // Query cek user (Contoh sederhana, sesuaikan dengan tabelmu)
-    $query  = "SELECT * FROM users WHERE username = '$username' AND password = '$password'";
-    $result = mysqli_query($conn, $query);
+    // Gunakan Prepared Statement untuk keamanan
+    $stmt = $conn->prepare("SELECT * FROM users WHERE username = ? AND password = ?");
+    $stmt->bind_param("ss", $username, $password);
+    $stmt->execute();
+    $result = $stmt->get_result();
 
-    if (mysqli_num_rows($result) > 0) {
-        $user = mysqli_fetch_assoc($result);
+    if ($result->num_rows > 0) {
+        $user = $result->fetch_assoc();
         
         // Simpan data ke session
         $_SESSION['status'] = "login";
@@ -22,5 +24,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     } else {
         header("location:index.html?pesan=gagal");
     }
+    $stmt->close();
 }
 ?>
