@@ -49,7 +49,7 @@ include 'includes/config.php';
                                 <img
                                     id="camera-stream"
                                     class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                                    src="http://192.168.0.105:81/stream"
+                                    src="http://192.168.1.20:81/stream"
                                     onerror="this.src='https://placehold.co/640x360/000000/FFFFFF?text=Tidak%20Tersedia';"
                                 />
                             </div>
@@ -119,7 +119,7 @@ include 'includes/config.php';
                                     </div>
                                     <div class="flex justify-between items-center bg-black/20 p-3 rounded-xl border border-white/5">
                                         <span class="text-[10px] font-black text-slate-500 uppercase">Status Lock</span>
-                                        <span id="lockStatus" class="px-3 py-1 rounded-lg bg-slate-700 text-slate-400 text-[10px] font-black">OFF</span>
+                                        <span id="lockStatus" class="px-3 py-1 rounded-lg bg-slate-700 text-slate-400 text-[10px] font-black">UNLOCK</span>
                                     </div>
                                 </div>
                             </div>

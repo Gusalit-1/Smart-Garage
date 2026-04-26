@@ -1,31 +1,21 @@
 <?php
-include 'includes/config.php';
+// Tentukan path lengkap dari root project
+$target_dir = "src/assets/img/captures/";
+$file_name = "capture_live.jpg";
+$target_file = $target_dir . $file_name;
 
-// Gunakan __DIR__ agar path-nya absolut dan tidak bingung
-$folder = __DIR__ . "/src/assets/img/captures/";
-$filename = "capture_live.jpg"; // Kita pakai nama tetap agar mudah dipanggil
-
-// Cek apakah folder ada, jika tidak buat foldernya
-if (!file_exists($folder)) {
-    mkdir($folder, 0777, true);
+// Pastikan folder ada
+if (!file_exists($target_dir)) {
+    mkdir($target_dir, 0777, true);
 }
 
-if (isset($_FILES["imageFile"])) {
-    $temp_name = $_FILES["imageFile"]["tmp_name"];
-    $destination = $folder . $filename;
-
-    if (move_uploaded_file($temp_name, $destination)) {
-        // Update database agar kolom foto di log terakhir terisi (Prepared Statement)
-        $stmt = $conn->prepare("UPDATE garage_logs SET foto = ? WHERE (foto IS NULL OR foto = '') ORDER BY id DESC LIMIT 1");
-        $stmt->bind_param("s", $filename);
-        $stmt->execute();
-        $stmt->close();
-        
-        echo "SUCCESS: File disimpan di " . $destination;
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_FILES['imageFile'])) {
+    if (move_uploaded_file($_FILES['imageFile']['tmp_name'], $target_file)) {
+        echo "OK: File berhasil disimpan di " . $target_file;
     } else {
-        echo "ERROR: Gagal memindahkan file. Cek izin folder!";
+        echo "ERROR: Gagal memindahkan file.";
     }
 } else {
-    echo "ERROR: Tidak ada data imageFile dari ESP32.";
+    echo "ERROR: Data tidak valid atau file imageFile tidak ada.";
 }
 ?>

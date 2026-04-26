@@ -1,4 +1,3 @@
-// --- MODAL SYSTEM (GLOBAL SCOPE) ---
 function openModal(src) {
     const modal = document.getElementById('photoModal');
     const img = document.getElementById('imgPreview');
@@ -35,13 +34,22 @@ function closeModal() {
     }
 }
 
+// --- CAMERA REFRESH ---
+function refreshCam() {
+    const cam = document.getElementById('camera-stream');
+    if (cam) {
+        const currentSrc = cam.src.split('?')[0];
+        cam.src = currentSrc + '?t=' + new Date().getTime();
+        console.log('Camera stream refreshed');
+    }
+}
+
 let sessionTimeout;
 
 function resetSessionTimer() {
     console.log("Aktivitas terdeteksi, mereset timer sesi...");
     clearTimeout(sessionTimeout);
     
-    // Set timer untuk logout otomatis jika tidak ada aktivitas selama 15 menit
     sessionTimeout = setTimeout(() => {
         alert("Sesi Anda telah berakhir karena tidak ada aktivitas.");
         window.location.href = 'logout.php';

@@ -2,10 +2,11 @@ var mqtt;
 var reconnectTimeout = 2000;
 var lastUID = "-";
 
+
 // 1. Data User (Source: User Summary)
 const rfidNames = {
     "77 97 35 02": "Wayan Giri",
-    "04 0E 45 EA": "Gusalit",
+    "04 87 60 4A 9B 19 90": "Gusalit",
     "05 81 25 1D": "Gung Rama"
 };
 
@@ -52,10 +53,10 @@ function updateLockStatus(status) {
     if (!el) return;
     
     if (status === "LOCKED") {
-        el.textContent = "ON";
+        el.textContent = "LOCKED";
         el.className = "px-3 py-1 rounded-lg bg-amber-500/10 text-amber-500 text-[10px] font-black border border-amber-500/20";
     } else {
-        el.textContent = "OFF";
+        el.textContent = "UNLOCK";
         el.className = "px-3 py-1 rounded-lg bg-slate-700 text-slate-400 text-[10px] font-black";
     }
 }
