@@ -27,6 +27,7 @@ const int SUDUT_TUTUP = 130;
 int posisiSekarang = 130;
 bool pintuTerbuka = false;
 bool sistemTerkunci = false;
+int kartuSalahCounter = 0;
 
 // --- 4. DAFTAR USER RFID (Source: User Summary) ---
 struct User {
@@ -94,9 +95,9 @@ void sendLogToDB(String uid) {
 }
 
 void eksekusiPintu(bool buka, String trigger) {
-    // Proteksi: Jika sistem LOCKED, RFID tidak bisa membuka pintu
-    if (sistemTerkunci && trigger.indexOf("RFID") != -1) {
-        Serial.println("Akses Ditolak: Sistem sedang TERKUNCI");
+    // PROTEKSI: Jika sistem LOCKED, tombol fisik/RFID tidak bisa jalan
+    if (sistemTerkunci) {
+        Serial.println("AKSES DITOLAK: Sistem dalam mode LOCKED. Unlock via Web!");
         beep(1000); 
         return;
     }
@@ -117,22 +118,31 @@ void eksekusiPintu(bool buka, String trigger) {
 // --- 7. MQTT CALLBACK (Terima Perintah dari Dashboard) ---
 void callback(char *topic, byte *payload, unsigned int length) {
     String msg = "";
-    for (int i = 0; i < length; i++) msg += (char)payload[i];
+    for (int i = 0; i < (int)length; i++) msg += (char)payload[i];
     
     Serial.println("Dashboard Command: " + msg);
 
     if (String(topic) == "gusalit/gate/command") {
         if (msg == "LOCK") { 
-            sistemTerkunci = true; updateStatusWeb(); beep(600); 
+            sistemTerkunci = true; 
+            updateStatusWeb(); 
+            beep(600); 
         }
         else if (msg == "UNLOCK") { 
-            sistemTerkunci = false; updateStatusWeb(); beep(100); 
+            sistemTerkunci = false; 
+            kartuSalahCounter = 0; // Reset counter saat di-unlock manual dari web
+            updateStatusWeb(); 
+            beep(100); 
         }
-        else if (msg == "OPEN" && !pintuTerbuka) { 
+        // Tombol OPEN/CLOSE hanya berfungsi jika TIDAK terkunci
+        else if (msg == "OPEN" && !pintuTerbuka && !sistemTerkunci) { 
             eksekusiPintu(true, "Dashboard"); 
         }
-        else if (msg == "CLOSE" && pintuTerbuka) { 
+        else if (msg == "CLOSE" && pintuTerbuka && !sistemTerkunci) { 
             eksekusiPintu(false, "Dashboard"); 
+        }
+        else if ((msg == "OPEN" || msg == "CLOSE") && sistemTerkunci) {
+            Serial.println("Perintah diabaikan: Sistem Terkunci!");
         }
     }
 }
@@ -196,6 +206,7 @@ void loop() {
         for (int i = 0; i < TOTAL_USER; i++) {
             if (uidStr == allowedUsers[i].uid) {
                 found = true;
+                kartuSalahCounter = 0; // Reset counter karena kartu benar ditemukan
                 client.publish("gusalit/gate/access", "GRANTED");
                 eksekusiPintu(!pintuTerbuka, "RFID: " + String(allowedUsers[i].nama));
                 break;
@@ -203,15 +214,21 @@ void loop() {
         }
 
         if (!found) {
+            kartuSalahCounter++; // Tambah hitungan kartu salah
+            Serial.printf("Kartu Tidak Dikenal! (Percobaan: %d/3)\n", kartuSalahCounter);
+            
             client.publish("gusalit/gate/access", "DENIED");
-            beep(800);
+            
+            // JIKA SUDAH 3 KALI SALAH
+            if (kartuSalahCounter >= 3) {
+                sistemTerkunci = true;
+                updateStatusWeb();
+                Serial.println("SISTEM OTOMATIS TERKUNCI (SECURITY LOCK)");
+                client.publish("gusalit/gate/status", "SECURITY_ALERT", true);
+                beep(2000); // Beep panjang sebagai tanda bahaya
+            } else {
+                beep(800);
+            }
         }
-
-        // D. Simpan Log ke Database MySQL via XAMPP
-        sendLogToDB(uidStr);
-
-        delay(1500); // Debounce pembacaan
-        rfid.PICC_HaltA();
-        rfid.PCD_StopCrypto1();
-    }
+}
 }
