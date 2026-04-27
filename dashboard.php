@@ -49,7 +49,7 @@ include 'includes/config.php';
                                 <img
                                     id="camera-stream"
                                     class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                                    src="http://192.168.1.20:81/stream"
+                                    src="http://192.168.1.3:81/stream"
                                     onerror="this.src='https://placehold.co/640x360/000000/FFFFFF?text=Tidak%20Tersedia';"
                                 />
                             </div>

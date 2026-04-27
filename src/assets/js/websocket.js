@@ -141,4 +141,3 @@ $(document).ready(function() {
     $('#lockBtn').on('click', function() { controlGarage('LOCK'); });
     $('#unlockBtn').on('click', function() { controlGarage('UNLOCK'); });
 });
-
