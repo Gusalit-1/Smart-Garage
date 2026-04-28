@@ -3,7 +3,6 @@ var reconnectTimeout = 2000;
 var lastUID = "-";
 
 
-// 1. Data User (Source: User Summary)
 const rfidNames = {
     "77 97 35 02": "Wayan Giri",
     "04 87 60 4A 9B 19 90": "Gusalit",
@@ -12,7 +11,7 @@ const rfidNames = {
 
 function getNamaByUID(uid) { return rfidNames[uid] || "Stranger"; }
 
-// 2. Koneksi MQTT
+
 function MQTTconnect() {
     var cid = "web_" + Math.random().toString(16).substr(2, 8);
     mqtt = new Paho.MQTT.Client(host, Number(port), path, cid);
@@ -31,7 +30,7 @@ function MQTTconnect() {
 
 function onConnect() {
     mqtt.subscribe("gusalit/gate/#");
-    $("#mqttStatus").html("● CONNECTED").addClass("text-emerald-500");
+    $("#mqttStatus").html("● CONNECTED").addClass("text-emerald-500").removeClass("text-slate-500");
 }
 
 // 3. Update Status UI
@@ -83,7 +82,7 @@ function onMessageArrived(message) {
     }
 }
 
-// 5. Update History Real-time (Otomatis munculkan tombol kamera)
+
 function addHistory(uid, access) {
     const container = document.getElementById("historyList");
     if (!container) return;
@@ -92,24 +91,22 @@ function addHistory(uid, access) {
     const waktu = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
     const isGranted = access.includes("GRANTED");
     
-    // Path foto tetap agar otomatis terdeteksi setelah upload_foto.php selesai
-    const fotoURL = `src/assets/img/captures/capture_live.jpg?t=${new Date().getTime()}`;
-
     const row = document.createElement("li");
     row.className = "px-8 py-5 flex justify-between items-center border-b border-white/5 animate-pulse";
     
     row.innerHTML = `
-        <div>
-            <div class="flex items-center gap-2">
-                <span class="text-[10px] font-mono text-slate-500">${waktu}</span>
-                <span class="text-sm font-bold text-white">${nama}</span>
+        <div class="space-y-1">
+            <div class="flex items-center gap-3">
+                <span class="text-[10px] font-mono font-bold text-slate-600 bg-black/20 px-2 py-0.5 rounded">${waktu}</span>
+                <span class="text-sm font-bold text-white tracking-tight">${nama}</span>
             </div>
-            <p class="text-[10px] ${isGranted ? 'text-emerald-400' : 'text-rose-400'} font-black">${access}</p>
+            <p class="text-[11px] ${isGranted ? 'text-emerald-400' : 'text-rose-400'} font-black uppercase tracking-wider">
+                ${access}
+            </p>
         </div>
-        <button onclick="openModal('${fotoURL}')" class="bg-white/5 p-3 rounded-xl hover:bg-indigo-600 transition-all">
-            <i class="fa-solid fa-camera-retro text-sm"></i>
-        </button>
+        <div class="text-slate-600 text-[10px] font-bold italic">Real-time</div>
     `;
+    
     container.prepend(row);
     setTimeout(() => row.classList.remove('animate-pulse'), 1000);
 }
@@ -122,22 +119,14 @@ function controlGarage(command) {
         mqtt.send(message);
         console.log("Sent: " + command);
     } else {
-        // Fallback jika SweetAlert2 belum load
         if (typeof Swal !== 'undefined') {
-            Swal.fire({ icon: 'error', title: 'MQTT Offline', background: '#1e293b', color: '#fff' });
+            Swal.fire({ icon: 'error', title: 'MQTT Offline', background: '#0f172a', color: '#fff' });
         } else {
             alert('MQTT Offline: Tidak dapat mengirim perintah.');
         }
     }
 }
 
-// 7. Event Listeners untuk tombol (jika tidak pakai onclick inline)
 $(document).ready(function() {
     MQTTconnect();
-    
-    // Fallback event listeners untuk tombol di src/index.html (yang tidak pakai onclick inline)
-    $('#open').on('click', function() { controlGarage('OPEN'); });
-    $('#close').on('click', function() { controlGarage('CLOSE'); });
-    $('#lockBtn').on('click', function() { controlGarage('LOCK'); });
-    $('#unlockBtn').on('click', function() { controlGarage('UNLOCK'); });
 });

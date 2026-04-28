@@ -29,7 +29,7 @@ include 'includes/config.php';
                 <div class="flex items-center gap-6">
                     <div class="flex flex-col items-end">
                         <span id="mqttStatus" class="text-[10px] font-bold px-3 py-1 bg-slate-900/80 rounded-full text-slate-500 border border-white/5 uppercase tracking-tighter">
-                            ● MQTT: OFFLINE
+                            MQTT: OFFLINE
                         </span>
                     </div>
                     <a href="logout.php" class="px-5 py-2 rounded-xl bg-rose-500/10 text-rose-500 text-xs font-bold border border-rose-500/20 hover:bg-rose-500 hover:text-white transition-all">Logout</a>
@@ -44,13 +44,13 @@ include 'includes/config.php';
                         <div class="bg-slate-900/50 rounded-[2rem] border border-white/5 p-3 shadow-inner">
                             <div class="relative aspect-video rounded-[1.5rem] overflow-hidden bg-black group">
                                 <div class="absolute top-4 left-4 z-20 flex items-center gap-2 bg-rose-600 text-white px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg">
-                                    <span class="w-2 h-2 bg-white rounded-full animate-ping"></span> LIVE
+                                    <span class="w-2 h-2 bg-white rounded-full animate-ping"></span> LIVE DETECT
                                 </div>
                                 <img
                                     id="camera-stream"
                                     class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                                    src="http://192.168.1.3:81/stream"
-                                    onerror="this.src='https://placehold.co/640x360/000000/FFFFFF?text=Tidak%20Tersedia';"
+                                    src="http://192.168.1.16:81/stream"
+                                    onerror="this.src='https://placehold.co/640x360/000000/FFFFFF?text=Kamera%20Offline';"
                                 />
                             </div>
                         </div>
@@ -65,7 +65,6 @@ include 'includes/config.php';
                                     <?php
                                     $logs = mysqli_query($conn, "SELECT * FROM garage_logs ORDER BY waktu DESC LIMIT 15");
                                     while($row = mysqli_fetch_assoc($logs)) {
-                                        $hasPhoto = !empty($row['foto']);
                                         $isGranted = (strpos(strtoupper($row['aktivitas']), 'GRANTED') !== false);
                                         $statusClass = $isGranted ? 'text-emerald-400' : 'text-sky-400';
                                         ?>
@@ -79,13 +78,6 @@ include 'includes/config.php';
                                                     <?php echo $row['aktivitas']; ?>
                                                 </p>
                                             </div>
-                                            
-                                            <?php if($hasPhoto): ?>
-
-                                            <button onclick="openModal('src/assets/img/captures/<?php echo $row['foto']; ?>')" class="bg-white/5 hover:bg-indigo-600 p-3 rounded-xl transition-all text-slate-400 hover:text-white border border-white/5 shadow-xl">
-                                                <i class="fa-solid fa-camera-retro text-sm"></i>
-                                            </button>
-                                            <?php endif; ?>
                                         </li>
                                     <?php } ?>
                                 </ul>
@@ -129,24 +121,6 @@ include 'includes/config.php';
                 </div>
             </main>
         </div>
-            <div id="photoModal" class="fixed inset-0 z-[999] hidden items-center justify-center bg-black/90 backdrop-blur-sm p-4 transition-all duration-300">
-        <div class="relative max-w-3xl w-full bg-slate-900 rounded-[2rem] border border-white/10 overflow-hidden transform scale-95 opacity-0 transition-all duration-300">
-            <div class="flex justify-between items-center p-6 border-b border-white/5">
-                <h3 class="text-white font-black uppercase tracking-widest text-xs">Aktivitas Terdeteksi</h3>
-                <button onclick="closeModal()" class="text-slate-400 hover:text-white transition-colors">
-                    <i class="fa-solid fa-xmark text-xl"></i>
-                </button>
-            </div>
-            <div class="p-2 bg-black/50">
-                <img id="imgPreview" src="" alt="Capture" class="w-full h-auto rounded-xl shadow-2xl">
-            </div>
-            <div class="p-6 text-center">
-                <button onclick="closeModal()" class="px-8 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold text-xs tracking-widest transition-all">
-                    TUTUP PREVIEW
-                </button>
-            </div>
-        </div>
-        </div>
     </div>
 
     <script src="https://cdn-script.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
@@ -155,7 +129,6 @@ include 'includes/config.php';
     <script src="src/assets/js/config.js"></script>
     <script src="src/assets/js/script.js"></script>
     <script src="src/assets/js/websocket.js"></script>
-    
 
 </body>
 </html>
