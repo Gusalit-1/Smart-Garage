@@ -1,37 +1,60 @@
 import cv2
 import requests
+from ultralytics import YOLO
+import time
 
 
-url_esp32 = "http://192.168.0.227:81/stream"
-# Endpoint untuk update status ke database
-api_url = "http://localhost/Smart-Garage-main/simpan_ai.php?access=granted"
+model = YOLO('yolov8s.pt') 
 
-# Load detektor wajah standar
-face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+# 2. Konfigurasi Endpoint
+url_esp32 = "http://192.168.1.18:81/stream"
+api_node_url = "http://localhost:8000/api/detection" 
 
 cap = cv2.VideoCapture(url_esp32)
 
-while True:
+
+last_sent_time = 0
+request_delay = 2 
+
+print("AI Service Smart Garage Aktif...")
+
+while cap.isOpened():
     ret, frame = cap.read()
-    if not ret: break
+    if not ret: 
+        print("Gagal mengambil stream kamera.")
+        break
 
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    faces = face_cascade.detectMultiScale(gray, 1.3, 5)
+    
+    results = model.predict(frame, conf=0.6, imgsz=640, verbose=False, stream=False)
+    
+    current_time = time.time()
 
-    for (x, y, w, h) in faces:
-        # Jika ada wajah terdeteksi, kita anggap akses diberikan
-        cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
-        cv2.putText(frame, "OWNER", (x, y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
+    for r in results:
+        # Jika ada objek yang terdeteksi
+        if len(r.boxes) > 0:
+            # Ambil label dari objek pertama (indeks 0)
+            cls_id = int(r.boxes[0].cls[0])
+            label = model.names[cls_id]
+            
+            # Tampilkan informasi di terminal untuk debugging
+            print(f"Terdeteksi: {label}")
 
-        # Kirim sinyal ke dashboard/database
-        try:
-            requests.get(api_url, timeout=0.1)
-            print("Sinyal terkirim ke Dashboard: Pintu Terbuka")
-        except:
-            pass
+            # 4. Logika Pengiriman ke Dashboard
+            if current_time - last_sent_time > request_delay:
+                try:
+                    # Mengirim nama objek yang terdeteksi ke server Node.js
+                    requests.post(api_node_url, json={"object": label}, timeout=0.5)
+                    last_sent_time = current_time
+                except Exception as e:
+                    print(f"Gagal mengirim data ke API: {e}")
 
-    cv2.imshow('AI Monitoring', frame)
-    if cv2.waitKey(1) & 0xFF == ord('q'): break
+    # 5. Visualisasi pada Monitor
+    # results[0].plot() akan otomatis menggambar box dan label objek
+    cv2.imshow('AI Scanner - Smart Garage', results[0].plot())
+    
+    # Tekan 'q' untuk berhenti
+    if cv2.waitKey(1) & 0xFF == ord('q'): 
+        break
 
 cap.release()
 cv2.destroyAllWindows()

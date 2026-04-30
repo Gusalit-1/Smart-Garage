@@ -71,10 +71,7 @@ function checkGateStatus() {
         });
 }
 
-/**
- * UPDATE HISTORY LIST (REAL-TIME TANPA REFRESH)
- * Mengambil data log terbaru dari API Node.js
- */
+
 function updateHistoryUI() {
     const historyList = document.getElementById('historyList');
     if (!historyList) return;
@@ -120,9 +117,6 @@ function init() {
 
     // Jalankan interval
     setInterval(refreshCam, 60000); // 1 menit
-    setInterval(checkGateStatus, 1000); // 1 detik (Real-time sync)
-    setInterval(updateHistoryUI, 5000); // 5 detik untuk history
-    
     // Panggil sekali saat start
     checkGateStatus();
     updateHistoryUI();

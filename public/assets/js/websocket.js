@@ -2,7 +2,7 @@ var mqtt;
 var reconnectTimeout = 2000;
 var lastUID = "-";
 var isLocked = false; 
-var isProcessing = false; // Mencegah spam klik
+var isProcessing = false; 
 
 const rfidNames = {
     "77 97 35 02": "Wayan Giri",
@@ -49,58 +49,68 @@ function onMessageArrived(message) {
     const topic = message.destinationName;
     const payload = message.payloadString.trim();
 
-    // Logika Status Lock (Paling Penting agar tidak berubah-ubah)
+    console.log(`[MQTT] Topic: ${topic} | Payload: ${payload}`);
+
     if (topic === "gusalit/gate/lock") {
         isLocked = (payload === "LOCKED");
         updateLockStatus(payload);
     }
     
-    if (topic === "gusalit/gate/status") {
+    else if (topic === "gusalit/gate/status") {
         updateGateStatus(payload);
     }
     
-    if (topic === "gusalit/gate/rfid") {
+    else if (topic === "gusalit/gate/rfid") {
         lastUID = payload;
     }
     
-    if (topic === "gusalit/gate/access") {
+    else if (topic === "gusalit/gate/access") {
         addHistory(lastUID, payload);
+    }
+
+else if (topic === "gusalit/gate/ai_detection") {
+        const statusEl = document.getElementById("ai-object-name");
+        if (statusEl) {
+            statusEl.innerText = payload.toUpperCase();
+            statusEl.className = "text-emerald-400 font-black text-xl tracking-tight animate-pulse";
+            
+            clearTimeout(window.aiResetTimer);
+            window.aiResetTimer = setTimeout(() => {
+                statusEl.innerText = "Monitoring...";
+                statusEl.className = "text-emerald-400 font-black text-xl tracking-tight";
+            }, 3000);
+        }
     }
 }
 
-// --- UPDATE UI COMPONENTS ---
+// --- UPDATE UI ---
 function updateGateStatus(status) {
     const el = document.getElementById("gateStatus");
-    if (!el) return;
-    if (status === "OPEN") {
-        el.textContent = "TERBUKA";
-        el.className = "px-3 py-1 rounded-lg bg-emerald-500/10 text-emerald-400 text-[10px] font-black border border-emerald-500/20";
-    } else {
-        el.textContent = "TERTUTUP";
-        el.className = "px-3 py-1 rounded-lg bg-rose-500/10 text-rose-400 text-[10px] font-black border border-rose-500/20";
-    }
+    if (!el || el.textContent === (status === "OPEN" ? "TERBUKA" : "TERTUTUP")) return;
+
+    el.textContent = status === "OPEN" ? "TERBUKA" : "TERTUTUP";
+    el.className = status === "OPEN" 
+        ? "px-3 py-1 rounded-lg bg-emerald-500/10 text-emerald-400 text-[10px] font-black border border-emerald-500/20"
+        : "px-3 py-1 rounded-lg bg-rose-500/10 text-rose-400 text-[10px] font-black border border-rose-500/20";
 }
 
 function updateLockStatus(status) {
     const el = document.getElementById("lockStatus");
-    if (!el) return;
-    if (status === "LOCKED") {
-        el.textContent = "LOCKED";
-        el.className = "px-3 py-1 rounded-lg bg-amber-500/10 text-amber-500 text-[10px] font-black border border-amber-500/20";
-    } else {
-        el.textContent = "UNLOCK";
-        el.className = "px-3 py-1 rounded-lg bg-slate-700 text-slate-400 text-[10px] font-black";
-    }
+    if (!el || el.textContent === status) return;
+
+    el.textContent = status;
+    el.className = status === "LOCKED" 
+        ? "px-3 py-1 rounded-lg bg-amber-500/10 text-amber-500 text-[10px] font-black border border-amber-500/20"
+        : "px-3 py-1 rounded-lg bg-slate-700 text-slate-400 text-[10px] font-black";
 }
 
-// --- FUNGSI KONTROL (DENGAN PROTEKSI LOCK) ---
+// --- FUNGSI KONTROL ---
 function controlGarage(command) {
     if (!mqtt || !mqtt.isConnected()) {
         Swal.fire({ icon: 'error', title: 'Offline', text: 'MQTT tidak terhubung!' });
         return;
     }
 
-    // PROTEKSI: Jika LOCKED, dilarang kirim OPEN/CLOSE
     if (isLocked && (command === "OPEN" || command === "CLOSE")) {
         Swal.fire({
             icon: 'warning',
@@ -120,7 +130,6 @@ function controlGarage(command) {
     message.destinationName = topic_cmd;
     mqtt.send(message);
     
-    // Beri jeda agar status stabil sebelum bisa klik lagi
     setTimeout(() => { isProcessing = false; }, 1000);
 }
 
@@ -134,7 +143,7 @@ function addHistory(uid, access) {
     const isGranted = access.toUpperCase().includes("GRANTED");
     
     const row = document.createElement("li");
-    row.className = "px-8 py-5 flex justify-between items-center border-b border-white/5 animate-pulse";
+    row.className = "px-8 py-5 flex justify-between items-center border-b border-white/5 animate-fade-in";
     row.innerHTML = `
         <div class="space-y-1">
             <div class="flex items-center gap-3">
@@ -147,24 +156,39 @@ function addHistory(uid, access) {
     `;
     
     container.prepend(row);
-    setTimeout(() => row.classList.remove('animate-pulse'), 1000);
     if (container.children.length > 10) container.removeChild(container.lastChild);
 }
 
-// Sinkronisasi database berkala (hanya jika MQTT diskonek sebagai backup)
-function syncDatabase() {
-    if (mqtt && mqtt.isConnected()) return; 
-
-    fetch('/status/gate-status')
-        .then(res => res.json())
-        .then(data => {
-            updateLockStatus(data.lock_status);
-            updateGateStatus(data.gate_status);
-            isLocked = (data.lock_status === "LOCKED");
-        });
+// --- SYNC DATABASE (BACKUP) ---
+async function syncDatabase() {
+    try {
+        const resStatus = await fetch('/status/gate-status', { credentials: 'include' });
+        if (!resStatus.ok) return;
+        const dataStatus = await resStatus.json();
+        
+        updateLockStatus(dataStatus.lock_status);
+        updateGateStatus(dataStatus.gate_status);
+        isLocked = (dataStatus.lock_status === "LOCKED");
+    } catch (err) {
+        console.error("Sync error:", err);
+    }
 }
 
+// --- LOGOUT ---
+async function handleLogout() {
+    try {
+        await fetch('/auth/logout', { credentials: 'include' });
+        window.location.href = '/index.html';
+    } catch (e) {
+        window.location.href = '/index.html';
+    }
+}
+
+// --- INISIALISASI ---
 $(document).ready(function() {
     MQTTconnect();
-    setInterval(syncDatabase, 5000); 
+    syncDatabase(); // Jalankan sekali saat startup
+    setInterval(syncDatabase, 30000); // Sinkronisasi cadangan setiap 30 detik
 });
+
+window.handleLogout = handleLogout;

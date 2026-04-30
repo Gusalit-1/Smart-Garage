@@ -1,7 +1,9 @@
+
 const mysql = require('mysql2');
 require('dotenv').config();
 
-const db = mysql.createPool({
+// Re-export db config (for backup/compatibility)
+const dbConfig = {
     host: process.env.DB_HOST || 'localhost',
     user: process.env.DB_USER || 'root',
     password: process.env.DB_PASSWORD || '',
@@ -9,16 +11,8 @@ const db = mysql.createPool({
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0
-});
+};
 
-// Test koneksi
-db.getConnection((err, connection) => {
-    if (err) {
-        console.error("Koneksi Database Gagal: " + err.message);
-    } else {
-        console.log("Database Smart Garage Terhubung!");
-        connection.release();
-    }
-});
+const createDbPool = () => mysql.createPool(dbConfig).promise();
 
-module.exports = db.promise(); // Menggunakan promise agar bisa pakai async/await
+module.exports = { createDbPool, dbConfig };
