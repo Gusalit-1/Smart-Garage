@@ -45,9 +45,19 @@ void reconnect() {
       Serial.println("Terhubung!");
       client.subscribe(topic_cmd);
       
-      // Lapor IP ke dashboard (Retained agar dashboard tahu IP terakhir meski ESP offline)
+      // Ambil IP
       String ipAddr = WiFi.localIP().toString();
+      // Buat URL Streaming lengkap
+      String streamUrl = "http://" + ipAddr + ":81/stream";
+
+      // 1. Kirim IP (Retained)
       client.publish(topic_ip, ipAddr.c_str(), true);
+      
+      // 2. Kirim Pesan Status/Log ke topik khusus log (opsional)
+      String logMsg = "Streaming Ready! URL: " + streamUrl;
+      client.publish("gusalit/gate/logs", logMsg.c_str()); 
+      
+      Serial.println("Data terkirim ke MQTT");
     } else {
       Serial.print("Gagal, rc=");
       Serial.print(client.state());
@@ -122,17 +132,16 @@ void setup() {
     ESP.restart();
   }
 
-  // --- 5. START SERVER & MQTT ---
+ // --- 5. START SERVER & MQTT ---
   startCameraServer(); 
 
-  Serial.print("Streaming Ready! URL: http://");
-  Serial.print(WiFi.localIP());
-  Serial.println(":81/stream"); // Port streaming default ESP32-CAM
-
+  // Inisialisasi MQTT Server
   client.setServer(mqtt_broker, mqtt_port);
   client.setCallback(callback);
-}
 
+  // Panggil reconnect sekali di setup untuk push data pertama kali
+  reconnect();
+}
 void loop() {
   // PENTING: Jaga koneksi MQTT tetap hidup
   if (!client.connected()) {

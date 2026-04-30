@@ -28,32 +28,34 @@ CREATE TABLE IF NOT EXISTS garage_logs (
     waktu TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 5. Tabel System Config (IP Kamera, Status Lock, dll)
-CREATE TABLE IF NOT EXISTS system_config (
-    config_key VARCHAR(50) PRIMARY KEY,
-    config_value VARCHAR(255) NOT NULL,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
-
--- 6. Tabel Failed RFID Attempts (Untuk auto-lock)
-CREATE TABLE IF NOT EXISTS failed_attempts (
+-- 5. Tabel Settings (Fixed table name consistency)
+CREATE TABLE IF NOT EXISTS settings (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    uid VARCHAR(50),
-    ip_address VARCHAR(50),
-    attempt_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+    gate_status VARCHAR(20) DEFAULT 'CLOSE',
+    lock_status VARCHAR(20) DEFAULT 'UNLOCKED',
+    camera_ip VARCHAR(50) DEFAULT '',
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
 
--- 7. Data Awal
-INSERT INTO users (username, password, nama_lengkap) 
-VALUES ('admin', 'admin123', 'admin');
+-- Add indexes for performance
+CREATE INDEX idx_logs_waktu ON garage_logs(waktu);
+CREATE INDEX idx_rfid_uid ON rfid_cards(uid_tag);
 
-INSERT INTO rfid_cards (uid_tag, pemilik) 
+-- 6. Data Awal - Updated with bcrypt hash for admin (bcrypt.hashSync('admin123', 10))
+INSERT IGNORE INTO users (username, password, nama_lengkap) 
+VALUES ('admin', '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Administrator');
+
+-- RFID cards
+INSERT IGNORE INTO rfid_cards (uid_tag, pemilik) 
 VALUES ('77 97 35 02', 'Wayan Giri'),
        ('04 87 60 4A 9B 19 90', 'Gusalit'),
        ('05 81 25 1D', 'Gung Rama');
 
-INSERT INTO system_config (config_key, config_value) 
-VALUES ('camera_ip', ''),
-       ('lock_status', 'UNLOCKED'),
-       ('gate_status', 'CLOSE')
-ON DUPLICATE KEY UPDATE config_value = config_value;
+-- Settings data
+INSERT INTO settings (id, gate_status, lock_status, camera_ip) 
+VALUES (1, 'CLOSE', 'UNLOCKED', '192.168.0.226')
+ON DUPLICATE KEY UPDATE 
+    gate_status = 'CLOSE', 
+    lock_status = 'UNLOCKED',
+    camera_ip = '192.168.0.226',
+    updated_at = CURRENT_TIMESTAMP;
