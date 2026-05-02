@@ -16,13 +16,13 @@ def getImagesAndLabels(path):
         faces = detector.detectMultiScale(img_numpy)
         for (x,y,w,h) in faces:
             faceSamples.append(img_numpy[y:y+h,x:x+w])
-            ids.append(1) # ID 1 untuk Owner
+            ids.append(1) # 
     return faceSamples, ids
 
 print("Sedang melatih data wajah... Mohon tunggu...")
 faces, ids = getImagesAndLabels(path)
 recognizer.train(faces, np.array(ids))
 
-# Simpan model
+
 recognizer.write('trainer.yml') 
 print(f"Selesai! {len(np.unique(ids))} wajah dilatih.")

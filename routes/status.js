@@ -1,10 +1,10 @@
 const express = require('express');
 const router = express.Router();
 
-// Get db from app settings
+
 const getDb = (req) => req.app.get('db');
 
-// Get gate status
+
 router.get('/gate-status', async (req, res) => {
     const db = getDb(req);
     

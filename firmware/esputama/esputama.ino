@@ -5,18 +5,18 @@
 #include <WiFiManager.h> 
 #include <ESP32Servo.h>
 
-// --- 1. KONFIGURASI MQTT ---
+
 const char *mqtt_broker = "broker.emqx.io"; 
 const int mqtt_port = 1883;
 
-// --- 2. KONFIGURASI PIN ---
+
 #define SS_PIN 5
 #define RST_PIN 22
 #define BUZZER_PIN 25
 #define SERVO_1_PIN 13 
 #define SERVO_2_PIN 12 
 
-// --- 3. STATUS & SUDUT SERVO ---
+
 const int SUDUT_BUKA = 20;
 const int SUDUT_TUTUP = 130;
 int posisiSekarang = 130;
@@ -24,13 +24,13 @@ bool pintuTerbuka = false;
 bool sistemTerkunci = false;
 int kartuSalahCounter = 0;
 
-// --- 4. DAFTAR USER RFID ---
+
 struct User {
     const char *uid;
     const char *nama;
 };
 
-// Data user berdasarkan User Summary
+
 User allowedUsers[] = {
     {"77 97 35 02", "Wayan Giri"},
     {"04 87 60 4A 9B 19 90", "Gusalit"},
@@ -42,7 +42,7 @@ MFRC522 rfid(SS_PIN, RST_PIN);
 WiFiClient espClient;
 PubSubClient client(espClient);
 
-// --- 5. FUNGSI SERVO & BUZZER ---
+
 void dualServoWrite(int angle) {
     int us1 = 600 + (angle * (2400 - 600) / 180);
     uint32_t duty1 = (uint32_t)((us1 * 65535) / 20000);
@@ -70,7 +70,7 @@ void beep(int ms) {
     ledcWriteTone(BUZZER_PIN, 0);
 }
 
-// --- 6. FUNGSI UPDATE STATUS KE DASHBOARD ---
+
 void updateStatusWeb() {
     client.publish("gusalit/gate/status", pintuTerbuka ? "OPEN" : "CLOSE", true);
     client.publish("gusalit/gate/lock", sistemTerkunci ? "LOCKED" : "UNLOCKED", true);
@@ -96,7 +96,7 @@ void eksekusiPintu(bool buka, String trigger) {
     }
 }
 
-// --- 7. MQTT CALLBACK ---
+
 void callback(char *topic, byte *payload, unsigned int length) {
     String msg = "";
     for (int i = 0; i < (int)length; i++) msg += (char)payload[i];
@@ -124,7 +124,7 @@ void callback(char *topic, byte *payload, unsigned int length) {
     }
 }
 
-// --- 8. SETUP ---
+
 void setup() {
     Serial.begin(115200);
     SPI.begin();
@@ -146,7 +146,7 @@ void setup() {
     client.setCallback(callback);
 }
 
-// --- 9. MAIN LOOP ---
+
 void loop() {
     if (!client.connected()) {
         Serial.print("Menghubungkan ke MQTT...");
@@ -160,7 +160,7 @@ void loop() {
     }
     client.loop();
 
-    // Logika Pembacaan RFID
+
     if (rfid.PICC_IsNewCardPresent() && rfid.PICC_ReadCardSerial()) {
         String uidStr = "";
         for (byte i = 0; i < rfid.uid.size; i++) {

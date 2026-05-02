@@ -4,7 +4,7 @@ var lastUID = "-";
 var isLocked = false; 
 var isProcessing = false; 
 
-// 1. Konfigurasi Nama Berdasarkan UID RFID
+
 const rfidNames = {
     "77 97 35 02": "Wayan Giri",
     "04 87 60 4A 9B 19 90": "Gusalit",
@@ -13,7 +13,7 @@ const rfidNames = {
 
 function getNamaByUID(uid) { return rfidNames[uid] || "Stranger"; }
 
-// 2. Koneksi MQTT
+
 function MQTTconnect() {
     if (typeof host === 'undefined') {
         console.error("Config host belum dimuat. Pastikan config.js sudah benar.");
@@ -41,7 +41,7 @@ function MQTTconnect() {
 
 function onConnect() {
     console.log("Connected to MQTT Broker");
-    mqtt.subscribe(topic_sub); // Subscribe ke 'gusalit/gate/#'
+    mqtt.subscribe(topic_sub); 
     $("#mqttStatus").html(" CONNECTED")
         .addClass("text-emerald-500")
         .removeClass("text-slate-500");
@@ -55,7 +55,7 @@ function onConnectionLost(response) {
     setTimeout(MQTTconnect, reconnectTimeout);
 }
 
-// 3. Logika Pesan Masuk (Real-Time)
+
 function onMessageArrived(message) {
     const topic = message.destinationName;
     const payload = message.payloadString.trim();
@@ -88,12 +88,12 @@ function onMessageArrived(message) {
     }
 }
 
-// 4. Helper Update UI
+
 function updateCameraStream(ip) {
     const streamEl = document.getElementById("camera-stream");
     const camIpDisplay = document.getElementById("cam-ip-display");
     
-    // Mengarahkan ke AI Service (Python Flask)
+
     const aiStreamUrl = "http://localhost:5000/video_feed";
 
     if (streamEl && streamEl.src !== aiStreamUrl) {
@@ -142,7 +142,7 @@ function updateLockStatus(status) {
         : "px-3 py-1 rounded-lg bg-slate-700 text-slate-400 text-[10px] font-black";
 }
 
-// 5. Kontrol Gerbang
+
 function controlGarage(command) {
     if (!mqtt || !mqtt.isConnected()) {
         Swal.fire({ icon: 'error', title: 'Offline', text: 'MQTT tidak terhubung!' });
@@ -171,7 +171,7 @@ function controlGarage(command) {
     setTimeout(() => { isProcessing = false; }, 1000);
 }
 
-// 6. Riwayat & Database
+
 function addHistory(uid, access) {
     const container = document.getElementById("historyList");
     if (!container) return;
@@ -190,7 +190,6 @@ function addHistory(uid, access) {
             </div>
             <p class="text-[11px] ${isGranted ? 'text-emerald-400' : 'text-rose-400'} font-black uppercase tracking-wider">${access}</p>
         </div>
-        <div class="text-slate-600 text-[10px] font-bold italic">Real-time</div>
     `;
     
     container.prepend(row);
@@ -199,22 +198,27 @@ function addHistory(uid, access) {
 
 async function syncDatabase() {
     try {
-        const res = await fetch('/status/gate-status', { credentials: 'include' });
-        if (res.status === 401) {
-            window.location.href = '/index.html';
-            return;
-        }
+        const res = await fetch('http://localhost:8000/status/gate-status', { 
+            credentials: 'include' 
+        });
+
+        if (!res.ok) throw new Error("Server response not OK");
+
         const data = await res.json();
         
+
         updateLockStatus(data.lock_status);
         updateGateStatus(data.gate_status);
         isLocked = (data.lock_status === "LOCKED");
+        
+        console.log(" Database synced successfully");
     } catch (err) {
-        console.warn("Sync database failed (relying on MQTT).");
+   
+        console.warn("Sync database failed (relying on MQTT). Error:", err.message);
     }
 }
 
-// 7. Inisialisasi
+
 $(document).ready(function() {
     MQTTconnect();
     syncDatabase();

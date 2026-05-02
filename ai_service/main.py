@@ -6,10 +6,10 @@ import requests
 import time
 
 app = Flask(__name__)
-CORS(app) # Mengatasi masalah akses dari dashboard browser
+CORS(app) 
 model = YOLO('yolov8s.pt')
 
-# SESUAIKAN DENGAN IP DARI MQTT
+
 url_esp32 = "http://192.168.1.8:81/stream" 
 api_node_url = "http://127.0.0.1:8000/api/detection"
 
@@ -17,7 +17,7 @@ def generate_frames():
     print(f"Mencoba membuka stream dari {url_esp32}...")
     cap = cv2.VideoCapture(url_esp32)
     
-    # Set timeout agar tidak menunggu selamanya jika kamera mati
+   
     cap.set(cv2.CAP_PROP_OPEN_TIMEOUT_MSEC, 5000)
     
     last_sent_time = 0
@@ -35,7 +35,7 @@ def generate_frames():
             cap = cv2.VideoCapture(url_esp32)
             continue
         
-        # AI Deteksi - Gunakan imgsz lebih kecil (320) agar lebih ringan/cepat
+        
         results = model.predict(frame, conf=0.5, imgsz=320, verbose=False)
         annotated_frame = results[0].plot()
 
@@ -53,7 +53,7 @@ def generate_frames():
                 except:
                     print("Gagal kirim ke API Node.js")
 
-        # Encode frame ke JPEG
+      
         ret, buffer = cv2.imencode('.jpg', annotated_frame)
         if not ret:
             continue
@@ -71,5 +71,4 @@ def video_feed():
     return Response(generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
 if __name__ == "__main__":
-    # Gunakan threaded=True agar Flask bisa menangani banyak request
     app.run(host='0.0.0.0', port=5000, threaded=True, debug=False)

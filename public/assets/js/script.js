@@ -15,7 +15,7 @@ function resetSessionTimer() {
         fetch('/auth/logout').then(() => {
             window.location.href = 'index.html';
         });
-    }, 15 * 60 * 1000); // 15 Menit
+    }, 15 * 60 * 1000); 
 }
 function checkGateStatus() {
     fetch('/status/gate-status')
@@ -57,10 +57,10 @@ function updateHistoryUI() {
     const historyList = document.getElementById('historyList');
     if (!historyList) return;
 
-    fetch('/api/logs', { credentials: 'include' }) // Pastikan cookie sesi ikut terkirim
+    fetch('/api/logs', { credentials: 'include' }) 
         .then(response => {
             if (response.status === 401) {
-                // Sesi habis, arahkan ke login
+
                 window.location.href = '/index.html';
                 return;
             }
@@ -69,7 +69,7 @@ function updateHistoryUI() {
         .then(result => {
             if (!result) return;
 
-            // Cek apakah server mengirim instruksi redirect
+
             if (result.redirect) {
                 window.location.href = result.redirect;
                 return;
@@ -126,9 +126,6 @@ function init() {
     }
 }
 
-/**
- * HANDLER LOGIN
- */
 async function handleLogin(e) {
     e.preventDefault();
     const btn = document.getElementById('loginBtn');

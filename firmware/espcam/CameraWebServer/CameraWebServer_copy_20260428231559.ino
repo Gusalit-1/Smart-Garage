@@ -4,7 +4,7 @@
 #include <PubSubClient.h>
 
 // ===========================
-// Pastikan board_config.h berisi definisi pin yang benar (Y2, Y3, dll)
+// Pastikan board_config.h 
 // ===========================
 #include "board_config.h"
 
@@ -16,10 +16,10 @@ const char* topic_cmd = "gusalit/gate/camera_command";
 WiFiClient espClient;
 PubSubClient client(espClient);
 
-// Prototipe fungsi web server (biasanya ada di file app_httpd.cpp)
+
 void startCameraServer();
 
-// --- 1. FUNGSI CALLBACK MQTT ---
+
 void callback(char* topic, byte* payload, unsigned int length) {
   String msg = "";
   for (int i = 0; i < length; i++) msg += (char)payload[i];
@@ -29,13 +29,12 @@ void callback(char* topic, byte* payload, unsigned int length) {
   Serial.print("]: ");
   Serial.println(msg);
 
-  // Contoh logika: jika menerima pesan "REBOOT" dari dashboard
+
   if (msg == "REBOOT") {
     ESP.restart();
   }
 }
 
-// --- 2. FUNGSI RECONNECT ---
 void reconnect() {
   while (!client.connected()) {
     Serial.print("Menghubungkan MQTT...");
@@ -45,15 +44,14 @@ void reconnect() {
       Serial.println("Terhubung!");
       client.subscribe(topic_cmd);
       
-      // Ambil IP
+
       String ipAddr = WiFi.localIP().toString();
-      // Buat URL Streaming lengkap
       String streamUrl = "http://" + ipAddr + ":81/stream";
 
-      // 1. Kirim IP (Retained)
+
       client.publish(topic_ip, ipAddr.c_str(), true);
       
-      // 2. Kirim Pesan Status/Log ke topik khusus log (opsional)
+
       String logMsg = "Streaming Ready! URL: " + streamUrl;
       client.publish("gusalit/gate/cam_ip", ipAddr.c_str(), true); 
       
@@ -72,7 +70,7 @@ void setup() {
   Serial.setDebugOutput(true);
   Serial.println();
 
-  // --- 3. KONFIGURASI KAMERA ---
+
   camera_config_t config;
   config.ledc_channel = LEDC_CHANNEL_0;
   config.ledc_timer = LEDC_TIMER_0;
@@ -100,7 +98,7 @@ void setup() {
   config.fb_count = 1;
 
   if (psramFound()) {
-    config.frame_size = FRAMESIZE_VGA; // Gunakan VGA agar streaming lebih lancar untuk YOLO
+    config.frame_size = FRAMESIZE_VGA; 
     config.jpeg_quality = 10;
     config.fb_count = 2;
     config.grab_mode = CAMERA_GRAB_LATEST;
@@ -109,7 +107,7 @@ void setup() {
     config.fb_location = CAMERA_FB_IN_DRAM;
   }
 
-  // Init Camera
+
   esp_err_t err = esp_camera_init(&config);
   if (err != ESP_OK) {
     Serial.printf("Camera init failed with error 0x%x", err);
@@ -117,13 +115,13 @@ void setup() {
   }
 
   sensor_t *s = esp_camera_sensor_get();
-  // Setting tambahan agar gambar lebih jelas untuk deteksi wajah
+
   if (s->id.PID == OV3660_PID) {
     s->set_vflip(s, 1);
     s->set_brightness(s, 1);
   }
 
-  // --- 4. WIFI MANAGER ---
+
  WiFiManager wm;
   if(!wm.autoConnect("ESP-CAM SMART GARAGE", "12345678")) {
     delay(3000);
@@ -131,7 +129,7 @@ void setup() {
   }
 
  
-  startCameraServer(); // Menjalankan stream di port 81 (biasanya)
+  startCameraServer(); 
 
   client.setServer(mqtt_broker, mqtt_port);
   client.setCallback(callback);

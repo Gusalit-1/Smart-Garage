@@ -2,7 +2,7 @@ import cv2
 import os
 import time
 
-# 1. Konfigurasi
+
 url_esp32 = "http://192.168.0.227:81/stream" 
 output_dir = "dataset/Alit/"
 max_images = 500 
@@ -26,7 +26,7 @@ while count < max_images:
         cap.release()
         time.sleep(3)
         cap = connect_camera()
-        continue # Lewati loop ini dan coba lagi
+        continue 
 
     display_frame = frame.copy()
 
@@ -39,7 +39,7 @@ while count < max_images:
         if key == ord('s'):
             ready = True
     else:
-        # Simpan gambar
+
         img_name = os.path.join(output_dir, f"owner_{count}.jpg")
         cv2.imwrite(img_name, frame)
         
@@ -50,7 +50,7 @@ while count < max_images:
         
         print(f"Tersimpan: {img_name}")
         count += 1
-        time.sleep(0.3) # Dipercepat sedikit agar selesai sebelum putus lagi
+        time.sleep(0.3) 
 
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
