@@ -35,8 +35,7 @@ router.get('/ai-access', async (req, res) => {
     }
 });
 
-// --- 2. ENDPOINT RFID ACCESS (dengan Auto-Lock) ---
-// Dipanggil oleh ESP32 saat kartu di-tap
+
 router.all('/rfid-access', async (req, res) => {
     const uid = req.query.uid || req.body.uid;
     const db = getDb(req);

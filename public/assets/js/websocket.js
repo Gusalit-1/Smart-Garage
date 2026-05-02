@@ -4,6 +4,7 @@ var lastUID = "-";
 var isLocked = false; 
 var isProcessing = false; 
 
+// 1. Konfigurasi Nama Berdasarkan UID RFID
 const rfidNames = {
     "77 97 35 02": "Wayan Giri",
     "04 87 60 4A 9B 19 90": "Gusalit",
@@ -12,8 +13,13 @@ const rfidNames = {
 
 function getNamaByUID(uid) { return rfidNames[uid] || "Stranger"; }
 
-// --- KONEKSI MQTT ---
+// 2. Koneksi MQTT
 function MQTTconnect() {
+    if (typeof host === 'undefined') {
+        console.error("Config host belum dimuat. Pastikan config.js sudah benar.");
+        return;
+    }
+
     console.log("Connecting to " + host + ":" + port);
     mqtt = new Paho.MQTT.Client(host, Number(port), path, clientIdPrefix);
     
@@ -35,61 +41,93 @@ function MQTTconnect() {
 
 function onConnect() {
     console.log("Connected to MQTT Broker");
-    mqtt.subscribe(topic_sub);
-    $("#mqttStatus").html(" CONNECTED").addClass("text-emerald-500").removeClass("text-slate-500");
+    mqtt.subscribe(topic_sub); // Subscribe ke 'gusalit/gate/#'
+    $("#mqttStatus").html(" CONNECTED")
+        .addClass("text-emerald-500")
+        .removeClass("text-slate-500");
 }
 
 function onConnectionLost(response) {
-    $("#mqttStatus").html("OFFLINE").addClass("text-slate-500").removeClass("text-emerald-500");
+    console.log("MQTT Lost: " + response.errorMessage);
+    $("#mqttStatus").html("OFFLINE")
+        .addClass("text-slate-500")
+        .removeClass("text-emerald-500");
     setTimeout(MQTTconnect, reconnectTimeout);
 }
 
-// --- LOGIKA PESAN MASUK (REAL-TIME) ---
+// 3. Logika Pesan Masuk (Real-Time)
 function onMessageArrived(message) {
     const topic = message.destinationName;
     const payload = message.payloadString.trim();
 
     console.log(`[MQTT] Topic: ${topic} | Payload: ${payload}`);
 
+    // Route pesan berdasarkan topik
     if (topic === "gusalit/gate/lock") {
         isLocked = (payload === "LOCKED");
         updateLockStatus(payload);
-    }
-    
+    } 
     else if (topic === "gusalit/gate/status") {
         updateGateStatus(payload);
-    }
-    
+    } 
     else if (topic === "gusalit/gate/rfid") {
         lastUID = payload;
-    }
-    
+    } 
     else if (topic === "gusalit/gate/access") {
         addHistory(lastUID, payload);
     }
-
-else if (topic === "gusalit/gate/ai_detection") {
-        const statusEl = document.getElementById("ai-object-name");
-        if (statusEl) {
-            statusEl.innerText = payload.toUpperCase();
-            statusEl.className = "text-emerald-400 font-black text-xl tracking-tight animate-pulse";
-            
-            clearTimeout(window.aiResetTimer);
-            window.aiResetTimer = setTimeout(() => {
-                statusEl.innerText = "Monitoring...";
-                statusEl.className = "text-emerald-400 font-black text-xl tracking-tight";
-            }, 3000);
-        }
+    else if (topic === "gusalit/gate/main_ip") {
+        const mainIpEl = document.getElementById("main-ip-display");
+        if (mainIpEl) mainIpEl.innerText = payload;
+    }
+    else if (topic === "gusalit/gate/cam_ip") {
+        updateCameraStream(payload);
+    }
+    else if (topic === "gusalit/gate/ai_detection") {
+        updateAIDetection(payload);
     }
 }
 
-// --- UPDATE UI ---
+// 4. Helper Update UI
+function updateCameraStream(ip) {
+    const streamEl = document.getElementById("camera-stream");
+    const camIpDisplay = document.getElementById("cam-ip-display");
+    
+    // Mengarahkan ke AI Service (Python Flask)
+    const aiStreamUrl = "http://localhost:5000/video_feed";
+
+    if (streamEl && streamEl.src !== aiStreamUrl) {
+        streamEl.src = aiStreamUrl;
+        console.log("Stream dialihkan ke AI Service (YOLO)");
+    }
+    if (camIpDisplay) camIpDisplay.innerText = ip;
+}
+
+function updateAIDetection(objectName) {
+    const statusEl = document.getElementById("ai-object-name");
+    if (!statusEl) return;
+
+    statusEl.innerText = objectName.toUpperCase();
+    statusEl.className = "text-emerald-400 font-black text-xl tracking-tight animate-pulse";
+    
+    clearTimeout(window.aiResetTimer);
+    window.aiResetTimer = setTimeout(() => {
+        statusEl.innerText = "Monitoring...";
+        statusEl.className = "text-emerald-400 font-black text-xl tracking-tight";
+    }, 4000);
+}
+
 function updateGateStatus(status) {
     const el = document.getElementById("gateStatus");
-    if (!el || el.textContent === (status === "OPEN" ? "TERBUKA" : "TERTUTUP")) return;
+    if (!el) return;
 
-    el.textContent = status === "OPEN" ? "TERBUKA" : "TERTUTUP";
-    el.className = status === "OPEN" 
+    const normalized = status.toUpperCase();
+    const targetText = normalized === "OPEN" ? "TERBUKA" : "TERTUTUP";
+
+    if (el.textContent === targetText) return;
+
+    el.textContent = targetText;
+    el.className = (normalized === "OPEN")
         ? "px-3 py-1 rounded-lg bg-emerald-500/10 text-emerald-400 text-[10px] font-black border border-emerald-500/20"
         : "px-3 py-1 rounded-lg bg-rose-500/10 text-rose-400 text-[10px] font-black border border-rose-500/20";
 }
@@ -99,12 +137,12 @@ function updateLockStatus(status) {
     if (!el || el.textContent === status) return;
 
     el.textContent = status;
-    el.className = status === "LOCKED" 
+    el.className = (status === "LOCKED")
         ? "px-3 py-1 rounded-lg bg-amber-500/10 text-amber-500 text-[10px] font-black border border-amber-500/20"
         : "px-3 py-1 rounded-lg bg-slate-700 text-slate-400 text-[10px] font-black";
 }
 
-// --- FUNGSI KONTROL ---
+// 5. Kontrol Gerbang
 function controlGarage(command) {
     if (!mqtt || !mqtt.isConnected()) {
         Swal.fire({ icon: 'error', title: 'Offline', text: 'MQTT tidak terhubung!' });
@@ -115,7 +153,7 @@ function controlGarage(command) {
         Swal.fire({
             icon: 'warning',
             title: 'Sistem Terkunci',
-            text: 'Buka pengunci (UNLOCK) terlebih dahulu!',
+            text: 'Buka LOCK terlebih dahulu!',
             background: '#0f172a',
             color: '#fff',
             confirmButtonColor: '#f59e0b'
@@ -133,7 +171,7 @@ function controlGarage(command) {
     setTimeout(() => { isProcessing = false; }, 1000);
 }
 
-// --- LOGIKA HISTORY ---
+// 6. Riwayat & Database
 function addHistory(uid, access) {
     const container = document.getElementById("historyList");
     if (!container) return;
@@ -143,7 +181,7 @@ function addHistory(uid, access) {
     const isGranted = access.toUpperCase().includes("GRANTED");
     
     const row = document.createElement("li");
-    row.className = "px-8 py-5 flex justify-between items-center border-b border-white/5 animate-fade-in";
+    row.className = "px-8 py-5 flex justify-between items-center border-b border-white/5 animate-fade-in hover:bg-white/[0.02]";
     row.innerHTML = `
         <div class="space-y-1">
             <div class="flex items-center gap-3">
@@ -159,36 +197,35 @@ function addHistory(uid, access) {
     if (container.children.length > 10) container.removeChild(container.lastChild);
 }
 
-// --- SYNC DATABASE (BACKUP) ---
 async function syncDatabase() {
     try {
-        const resStatus = await fetch('/status/gate-status', { credentials: 'include' });
-        if (!resStatus.ok) return;
-        const dataStatus = await resStatus.json();
+        const res = await fetch('/status/gate-status', { credentials: 'include' });
+        if (res.status === 401) {
+            window.location.href = '/index.html';
+            return;
+        }
+        const data = await res.json();
         
-        updateLockStatus(dataStatus.lock_status);
-        updateGateStatus(dataStatus.gate_status);
-        isLocked = (dataStatus.lock_status === "LOCKED");
+        updateLockStatus(data.lock_status);
+        updateGateStatus(data.gate_status);
+        isLocked = (data.lock_status === "LOCKED");
     } catch (err) {
-        console.error("Sync error:", err);
+        console.warn("Sync database failed (relying on MQTT).");
     }
 }
 
-// --- LOGOUT ---
-async function handleLogout() {
+// 7. Inisialisasi
+$(document).ready(function() {
+    MQTTconnect();
+    syncDatabase();
+    setInterval(syncDatabase, 60000);
+});
+
+window.handleLogout = async function() {
     try {
         await fetch('/auth/logout', { credentials: 'include' });
         window.location.href = '/index.html';
     } catch (e) {
         window.location.href = '/index.html';
     }
-}
-
-// --- INISIALISASI ---
-$(document).ready(function() {
-    MQTTconnect();
-    syncDatabase(); // Jalankan sekali saat startup
-    setInterval(syncDatabase, 30000); // Sinkronisasi cadangan setiap 30 detik
-});
-
-window.handleLogout = handleLogout;
+};

@@ -55,9 +55,9 @@ void reconnect() {
       
       // 2. Kirim Pesan Status/Log ke topik khusus log (opsional)
       String logMsg = "Streaming Ready! URL: " + streamUrl;
-      client.publish("gusalit/gate/logs", logMsg.c_str()); 
+      client.publish("gusalit/gate/cam_ip", ipAddr.c_str(), true); 
       
-      Serial.println("Data terkirim ke MQTT");
+      Serial.println("IP Terkirim ke Dashboard: " + ipAddr);
     } else {
       Serial.print("Gagal, rc=");
       Serial.print(client.state());
@@ -124,31 +124,22 @@ void setup() {
   }
 
   // --- 4. WIFI MANAGER ---
-  WiFiManager wm;
-  wm.setClass("invert"); 
-  if(!wm.autoConnect("ESP32-CAM-Gusalit", "12345678")) {
-    Serial.println("Gagal konek WiFi, Restart...");
+ WiFiManager wm;
+  if(!wm.autoConnect("ESP-CAM SMART GARAGE", "12345678")) {
     delay(3000);
     ESP.restart();
   }
 
- // --- 5. START SERVER & MQTT ---
-  startCameraServer(); 
+ 
+  startCameraServer(); // Menjalankan stream di port 81 (biasanya)
 
-  // Inisialisasi MQTT Server
   client.setServer(mqtt_broker, mqtt_port);
   client.setCallback(callback);
-
-  // Panggil reconnect sekali di setup untuk push data pertama kali
-  reconnect();
 }
 void loop() {
-  // PENTING: Jaga koneksi MQTT tetap hidup
   if (!client.connected()) {
     reconnect();
   }
-  client.loop(); // Memproses data MQTT yang masuk
-  
-  // Jangan gunakan delay(10000) karena akan mematikan respon MQTT
-  delay(10); 
+  client.loop();
+  delay(10);
 }

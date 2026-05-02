@@ -74,41 +74,8 @@
         </div>
       </div>
     </div>
-    <script>
-      document.getElementById('loginForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const btn = document.getElementById('loginBtn');
-        const msg = document.getElementById('loginMessage');
-        btn.textContent = 'Memproses...';
-        btn.disabled = true;
-        msg.classList.add('hidden');
-        
-        const username = document.getElementById('username').value;
-        const password = document.getElementById('password').value;
-        
-        try {
-          const res = await fetch('/auth/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, password }),
-            credentials: 'include'
-          });
-          const data = await res.json();
-          
-          if (data.success) {
-            window.location.href = data.redirect;
-          } else {
-            msg.innerHTML = '<p class="text-red-500 text-sm">Username atau password salah!</p>';
-            msg.classList.remove('hidden');
-          }
-        } catch (err) {
-          msg.innerHTML = '<p class="text-red-500 text-sm">Error koneksi server!</p>';
-          msg.classList.remove('hidden');
-        } finally {
-          btn.textContent = 'Masuk Sekarang';
-          btn.disabled = false;
-        }
-      });
+    <script src="assets/js/script.js" >
+      
     </script>
   </body>
 </html>

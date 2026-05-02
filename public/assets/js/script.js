@@ -1,7 +1,3 @@
-/**
- * REFRESH KAMERA
- * Menambahkan timestamp agar browser tidak melakukan caching pada stream
- */
 function refreshCam() {
     const cam = document.getElementById('camera-stream');
     if (cam) {
@@ -12,28 +8,17 @@ function refreshCam() {
 }
 
 let sessionTimeout;
-
-/**
- * SESSION TIMER
- * Menendang user ke halaman login jika tidak ada aktivitas
- */
 function resetSessionTimer() {
     clearTimeout(sessionTimeout);
     sessionTimeout = setTimeout(() => {
         alert("Sesi Anda telah berakhir karena tidak ada aktivitas.");
-        // Logout via API Node.js
         fetch('/auth/logout').then(() => {
             window.location.href = 'index.html';
         });
     }, 15 * 60 * 1000); // 15 Menit
 }
-
-/**
- * MONITOR STATUS GATE & LOCK (SYNC DENGAN NODE.JS & DATABASE)
- * Menggantikan get_status.php
- */
 function checkGateStatus() {
-    fetch('/status/gate-status') // Route API di server.js
+    fetch('/status/gate-status')
         .then(response => {
             if (!response.ok) throw new Error("Server not responding");
             return response.json();
@@ -44,9 +29,7 @@ function checkGateStatus() {
 
             if (gateStatusLabel && data.gate_status) {
                 gateStatusLabel.innerText = data.gate_status;
-                
-                // Update Styling berdasarkan status
-                if (data.gate_status === 'OPEN') {
+                if (data.gate_status === 'TERBUKA') {
                     gateStatusLabel.className = 'px-3 py-1 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/50 font-black animate-pulse';
                 } else {
                     gateStatusLabel.className = 'px-3 py-1 rounded-lg bg-rose-500/20 text-rose-400 border border-rose-500/50 font-black';
@@ -63,7 +46,6 @@ function checkGateStatus() {
             }
         })
         .catch(err => {
-            // Kita log sekali saja, tidak perlu spam console setiap detik
             if (window.lastError !== err.message) {
                 console.error("Gagal sync status:", err.message);
                 window.lastError = err.message;
@@ -71,15 +53,35 @@ function checkGateStatus() {
         });
 }
 
-
 function updateHistoryUI() {
     const historyList = document.getElementById('historyList');
     if (!historyList) return;
 
-    fetch('/api/logs') // Route API di server.js
-        .then(response => response.json())
-        .then(logs => {
-            // Kosongkan list dan isi dengan data baru
+    fetch('/api/logs', { credentials: 'include' }) // Pastikan cookie sesi ikut terkirim
+        .then(response => {
+            if (response.status === 401) {
+                // Sesi habis, arahkan ke login
+                window.location.href = '/index.html';
+                return;
+            }
+            return response.json();
+        })
+        .then(result => {
+            if (!result) return;
+
+            // Cek apakah server mengirim instruksi redirect
+            if (result.redirect) {
+                window.location.href = result.redirect;
+                return;
+            }
+
+            const logs = Array.isArray(result) ? result : result.data;
+
+            if (!logs || !Array.isArray(logs)) {
+                console.error("Format log tidak valid:", result);
+                return;
+            }
+
             historyList.innerHTML = logs.map(log => {
                 const isGranted = log.aktivitas.toUpperCase().includes('GRANTED');
                 const statusClass = isGranted ? 'text-emerald-400' : 'text-sky-400';
@@ -92,9 +94,7 @@ function updateHistoryUI() {
                                 <span class="text-[10px] font-mono font-bold text-slate-600 bg-black/20 px-2 py-0.5 rounded">${time}</span>
                                 <span class="text-sm font-bold text-white tracking-tight">${log.username}</span>
                             </div>
-                            <p class="text-[11px] ${statusClass} font-black uppercase tracking-wider">
-                                ${log.aktivitas}
-                            </p>
+                            <p class="text-[11px] ${statusClass} font-black uppercase tracking-wider">${log.aktivitas}</p>
                         </div>
                     </li>
                 `;
@@ -103,25 +103,70 @@ function updateHistoryUI() {
         .catch(err => console.error("Gagal update history:", err));
 }
 
-/**
- * INITIALIZATION
- */
 function init() {
-    resetSessionTimer();
+    if (document.getElementById('gateStatus')) {
+        resetSessionTimer();
+        const activities = ['mousemove', 'keydown', 'click', 'touchstart', 'scroll'];
+        activities.forEach(event => {
+            document.addEventListener(event, resetSessionTimer, { passive: true });
+        });
+
+        setInterval(refreshCam, 60000);
+        
+        
+        checkGateStatus();
+        updateHistoryUI();
+        console.log("Dashboard Monitoring Active.");
+    }
+
+    const loginForm = document.getElementById('loginForm');
+    if (loginForm) {
+        loginForm.addEventListener('submit', handleLogin);
+        console.log("Login Form Ready.");
+    }
+}
+
+/**
+ * HANDLER LOGIN
+ */
+async function handleLogin(e) {
+    e.preventDefault();
+    const btn = document.getElementById('loginBtn');
+    const msg = document.getElementById('loginMessage');
+    const usernameInput = document.getElementById('username');
+    const passwordInput = document.getElementById('password');
+
+    if (!btn || !msg) return;
+
+    btn.textContent = 'Memproses...';
+    btn.disabled = true;
+    msg.classList.add('hidden');
     
-    // Deteksi aktivitas user untuk reset timer
-    const activities = ['mousemove', 'keydown', 'click', 'touchstart', 'scroll'];
-    activities.forEach(event => {
-        document.addEventListener(event, resetSessionTimer, { passive: true });
-    });
-
-    // Jalankan interval
-    setInterval(refreshCam, 60000); // 1 menit
-    // Panggil sekali saat start
-    checkGateStatus();
-    updateHistoryUI();
-
-    console.log("Smart Garage Monitoring UI Initialized for Node.js...");
+    try {
+        const res = await fetch('/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                username: usernameInput.value, 
+                password: passwordInput.value 
+            }),
+            credentials: 'include'
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+            window.location.href = data.redirect;
+        } else {
+            msg.innerHTML = '<p class="text-red-500 text-sm">Username atau password salah!</p>';
+            msg.classList.remove('hidden');
+        }
+    } catch (err) {
+        msg.innerHTML = '<p class="text-red-500 text-sm">Error koneksi server!</p>';
+        msg.classList.remove('hidden');
+    } finally {
+        btn.textContent = 'Masuk Sekarang';
+        btn.disabled = false;
+    }
 }
 
 document.addEventListener("DOMContentLoaded", init);
